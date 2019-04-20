@@ -4,7 +4,7 @@
 
 package com.toitware.immutable;
 
-public class ImmutableArray {
+public class ImmutableArray<E> {
   public final long length;
   private Object powers[];
 
@@ -17,22 +17,13 @@ public class ImmutableArray {
     powers = pow;
   }
 
-  static int tribbles(long index) {
-    int result = 0;
-    while (index != 0) {
-      result++;
-      index >>>= 3;
-    }
-    return result;
-  }
-
   // A tree that is 199 large has three full trees of 64 each in the leftmost
   // powers entry.  The next powers entry has null, and the last
   // points at an array with 7 elements.  If we add one element then the
   // medium powers entry gets a pointer to a 1-element array that points to
   // the 8-entry leaf.
 
-  public Object at(long index) {
+  public E at(long index) {
     long len = length;
     if (index < 0 || index >= len) throw new IndexOutOfBoundsException();
     int length_tribbles = powers.length - 1;
@@ -48,10 +39,10 @@ public class ImmutableArray {
     }
   }
 
-  private Object _get(int tribbles, long index, Object obj) {
+  private @SuppressWarnings("unchecked") E _get(int tribbles, long index, Object obj) {
     Object array[] = (Object[])obj;
     long idx = index >>> (tribbles * 3);
-    if (tribbles == 0) return array[(int)idx];
+    if (tribbles == 0) return (E)array[(int)idx];
     return _get(tribbles - 1, index - (idx << (tribbles * 3)), array[(int)idx]);
   }
 
@@ -76,7 +67,7 @@ public class ImmutableArray {
     return new_array;
   }
 
-  public ImmutableArray at_put(long index, Object value) {
+  public ImmutableArray<E> at_put(long index, E value) {
     long len = length;
     if (index < 0 || index >= len) throw new IndexOutOfBoundsException();
     int length_tribbles = powers.length - 1;
@@ -84,7 +75,7 @@ public class ImmutableArray {
       long top_index_digit = index >>> (3 * length_tribbles);
       long top_length_digit = len >>> (3 * length_tribbles);
       if (top_index_digit < top_length_digit) {
-        return new ImmutableArray(
+        return new ImmutableArray<E>(
             length,
             _copy_but(
                 powers,
@@ -107,20 +98,20 @@ public class ImmutableArray {
             _at_put(tribbles - 1, value, index - (idx << (tribbles * 3)), (Object[])array[(int)idx]));
   }
 
-  public ImmutableArray push(Object value) {
+  public ImmutableArray<E> push(E value) {
     return _push(1, value, null);
   }
 
-  public ImmutableArray push(Object value1, Object value2) {
+  public ImmutableArray<E> push(E value1, E value2) {
     if ((length & 1) == 0) {
       return _push(2, value1, value2);
     }
     return push(value1).push(value2);
   }
 
-  public ImmutableArray _push(int count, Object value1, Object value2) {
+  public ImmutableArray<E> _push(int count, Object value1, Object value2) {
     if (((length + count) & 7) != 0) {
-      return new ImmutableArray(
+      return new ImmutableArray<E>(
           length + count,
           _copy_but(
               powers,
@@ -144,7 +135,7 @@ public class ImmutableArray {
       value = new_powers[i];
       new_powers[i] = null;
     }
-    return new ImmutableArray(length + 1, new_powers);
+    return new ImmutableArray<E>(length + 1, new_powers);
   }
 
   private boolean _is_power_of_8(long i) {

@@ -7,21 +7,21 @@ import com.toitware.immutable.ImmutableArray;
 
 class ImmutableArrayTest {
   public static void main(String args[]) {
-    ImmutableArray empty = new ImmutableArray();
+    ImmutableArray<Integer> empty = new ImmutableArray<Integer>();
     assert(empty.length == 0);
-    ImmutableArray ft = empty.push(42);
+    ImmutableArray<Integer> ft = empty.push(42);
     assert(ft.length == 1);
     assert((Integer)ft.at(0) == 42);
     assert(empty.length == 0);
-    ImmutableArray two_a = ft.push(103);
-    ImmutableArray two_b = ft.push(7);
+    ImmutableArray<Integer> two_a = ft.push(103);
+    ImmutableArray<Integer> two_b = ft.push(7);
     assert(two_a.length == 2);
     assert(two_b.length == 2);
     assert((Integer)two_a.at(0) == 42);
     assert((Integer)two_b.at(0) == 42);
     assert((Integer)two_a.at(1) == 103);
     assert((Integer)two_b.at(1) == 7);
-    ImmutableArray p = new ImmutableArray();
+    ImmutableArray<Integer> p = new ImmutableArray<Integer>();
     for (int i = 0; i < 10; i++) {
       p = p.push(i * i);
     }
@@ -43,10 +43,10 @@ class ImmutableArrayTest {
     for (int i = 0; i < 1000; i++) {
       assert((Integer)p.at(i) == i * i);
     }
-    ImmutableArray p2 = p.at_put(42, 42);
+    ImmutableArray<Integer> p2 = p.at_put(42, 42);
     assert(p2.length == p.length);
     assert((Integer)p2.at(42) == 42);
-    ImmutableArray p3 = p;
+    ImmutableArray<Integer> p3 = p;
     for (int i = 0; i < 1000; i++) {
       assert((Integer)p2.at(i) == (i == 42 ? 42 : i * i));
       assert((Integer)p.at(i) == i * i);
