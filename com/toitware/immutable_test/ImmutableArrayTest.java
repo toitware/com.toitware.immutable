@@ -44,14 +44,14 @@ class ImmutableArrayTest {
     for (int i = 0; i < 1000; i++) {
       assert(p.at(i) == i * i);
     }
-    ImmutableArray<Integer> p2 = p.at_put(42, 42);
+    ImmutableArray<Integer> p2 = p.atPut(42, 42);
     assert(p2.length == p.length);
     assert(p2.at(42) == 42);
     ImmutableArray<Integer> p3 = p;
     for (int i = 0; i < 1000; i++) {
       assert(p2.at(i) == (i == 42 ? 42 : i * i));
       assert(p.at(i) == i * i);
-      p3 = p3.at_put(i, i * i * i);
+      p3 = p3.atPut(i, i * i * i);
     }
     for (int i = 1000; i < 100000; i++) {
       p = p.push(i * i);

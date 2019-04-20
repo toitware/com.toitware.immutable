@@ -51,7 +51,7 @@ public class ImmutableArray<E> implements Iterable<E> {
   }
 
   // Makes a copy of an array, but at the given index the value is substituted.
-  private Object[] _copy_but(Object old[], long index, Object value) {
+  private Object[] _copyBut(Object old[], long index, Object value) {
     Object[] new_array = old == null ? new Object[1] : new Object[old.length];
     for (int i = 0; i < new_array.length; i++) {
       new_array[i] = (i == index) ? value : old[i];
@@ -60,7 +60,7 @@ public class ImmutableArray<E> implements Iterable<E> {
   }
 
   // Makes a copy of an array, but appends the given values.
-  private Object[] _copy_append(Object old[], int count, Object value1, Object value2) {
+  private Object[] _copyAppend(Object old[], int count, Object value1, Object value2) {
     int len = old == null ? 0 : old.length;
     Object[] new_array = new Object[len + count];
     for (int i = 0; i < len; i++) {
@@ -71,7 +71,7 @@ public class ImmutableArray<E> implements Iterable<E> {
     return new_array;
   }
 
-  public ImmutableArray<E> at_put(long index, E value) {
+  public ImmutableArray<E> atPut(long index, E value) {
     long len = length;
     if (index < 0 || index >= len) throw new IndexOutOfBoundsException();
     int length_tribbles = powers.length - 1;
@@ -81,10 +81,10 @@ public class ImmutableArray<E> implements Iterable<E> {
       if (top_index_digit < top_length_digit) {
         return new ImmutableArray<E>(
             length,
-            _copy_but(
+            _copyBut(
                 powers,
                 length_tribbles, 
-                _at_put(length_tribbles, value, index, (Object[])powers[length_tribbles])));
+                _atPut(length_tribbles, value, index, (Object[])powers[length_tribbles])));
       }
       index -= top_index_digit << (3 * length_tribbles);
       len -= top_index_digit << (3 * length_tribbles);
@@ -92,14 +92,14 @@ public class ImmutableArray<E> implements Iterable<E> {
     }
   }
 
-  private Object[] _at_put(int tribbles, Object value, long index, Object array[]) {
+  private Object[] _atPut(int tribbles, Object value, long index, Object array[]) {
     long idx = index >>> (tribbles * 3);
-    return _copy_but(
+    return _copyBut(
         array,
         idx,
         tribbles == 0 ?
             value :
-            _at_put(tribbles - 1, value, index - (idx << (tribbles * 3)), (Object[])array[(int)idx]));
+            _atPut(tribbles - 1, value, index - (idx << (tribbles * 3)), (Object[])array[(int)idx]));
   }
 
   public ImmutableArray<E> push(E value) {
@@ -117,23 +117,23 @@ public class ImmutableArray<E> implements Iterable<E> {
     if (((length + count) & 7) != 0) {
       return new ImmutableArray<E>(
           length + count,
-          _copy_but(
+          _copyBut(
               powers,
               0,
-              _copy_append(powers == null ? null : (Object[])powers[0], count, value1, value2)));
+              _copyAppend(powers == null ? null : (Object[])powers[0], count, value1, value2)));
     }
-    Object value = _copy_append((Object[])powers[0], count, value1, value2);
+    Object value = _copyAppend((Object[])powers[0], count, value1, value2);
     Object new_powers[];
-    if (_is_power_of_8(length + 1)) {
+    if (_isPowerOf8(length + 1)) {
       // Need to grow powers array.
-      new_powers = _copy_append(powers, 1, null, null);
+      new_powers = _copyAppend(powers, 1, null, null);
       new_powers[0] = null;
     } else {
       // Don't need to grow powers array.
-      new_powers = _copy_but(powers, 0, null);
+      new_powers = _copyBut(powers, 0, null);
     }
     for (int i = 1; i < new_powers.length; i++) {
-      Object new_value[] = _copy_append((Object[])new_powers[i], 1, value, null);
+      Object new_value[] = _copyAppend((Object[])new_powers[i], 1, value, null);
       new_powers[i] = new_value;
       if (new_value.length != 8) break;
       value = new_powers[i];
@@ -142,7 +142,7 @@ public class ImmutableArray<E> implements Iterable<E> {
     return new ImmutableArray<E>(length + 1, new_powers);
   }
 
-  private boolean _is_power_of_8(long i) {
+  private boolean _isPowerOf8(long i) {
     // Quick check for power of 2.
     if ((i & (i - 1)) != 0) return false;
     // If it's a power of two we have to check for a power of 8.
