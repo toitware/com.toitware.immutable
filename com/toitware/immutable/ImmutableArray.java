@@ -4,12 +4,16 @@
 
 package com.toitware.immutable;
 
-public class ImmutableArray<E> {
+public class ImmutableArray<E> implements Iterable<E> {
   public final long length;
   private Object powers[];
 
   public ImmutableArray() {
     length = 0;
+  }
+
+  public ImmutableArrayIterator<E> iterator() {
+    return new ImmutableArrayIterator<E>(this);
   }
 
   private ImmutableArray(long len, Object[] pow) {
