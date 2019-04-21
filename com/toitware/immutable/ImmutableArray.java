@@ -13,7 +13,7 @@ public class ImmutableArray<E> implements Iterable<E> {
   }
 
   public ImmutableArrayIterator<E> iterator() {
-    return new ImmutableArrayIterator<E>(this);
+    return new ImmutableArrayIterator<E>(this, powers);
   }
 
   private ImmutableArray(long len, Object[] pow) {

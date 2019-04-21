@@ -10,9 +10,15 @@ class ImmutableArrayTest {
   public static void main(String args[]) {
     ImmutableArray<Integer> empty = new ImmutableArray<Integer>();
     assert(empty.length == 0);
+    for (int i : empty) {
+      assert(false);
+    }
     ImmutableArray<Integer> ft = empty.push(42);
     assert(ft.length == 1);
     assert(ft.at(0) == 42);
+    for (int i : ft) {
+      assert(i == 42);
+    }
     assert(empty.length == 0);
     ImmutableArray<Integer> two_a = ft.push(103);
     ImmutableArray<Integer> two_b = ft.push(7);
@@ -53,6 +59,14 @@ class ImmutableArrayTest {
       assert(p.at(i) == i * i);
       p3 = p3.atPut(i, i * i * i);
     }
+    for (int i = 0; i < 1000; i++) {
+      assert(p3.at(i) == i * i * i);
+    }
+    int j = 0;
+    for (int i : p3) {
+      assert(i == j * j * j);
+      j++;
+    }
     for (int i = 1000; i < 100000; i++) {
       p = p.push(i * i);
     }
@@ -60,7 +74,7 @@ class ImmutableArrayTest {
       assert(p.at(i) == i * i);
     }
 
-    int j = 0;
+    j = 0;
     for (int i : p) {
       assert(i == j * j);
       j++;
