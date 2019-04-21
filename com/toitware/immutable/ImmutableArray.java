@@ -173,7 +173,7 @@ public class ImmutableArray<E> extends AbstractCollection<E> implements Iterable
     return push(value1).push(value2);
   }
 
-  public ImmutableArray<E> _push(int count, Object value1, Object value2) {
+  private ImmutableArray<E> _push(int count, Object value1, Object value2) {
     if (((size + count) & 7) != 0) {
       return new ImmutableArray<E>(
           size + count,
@@ -184,7 +184,7 @@ public class ImmutableArray<E> extends AbstractCollection<E> implements Iterable
     }
     Object value = _copyAppend((Object[])_powers[0], count, value1, value2);
     Object new_powers[];
-    if (_isPowerOf8(size + 1)) {
+    if (_isPowerOf8(size + count)) {
       // Need to grow _powers array.
       new_powers = _copyAppend(_powers, 1, null, null);
       new_powers[0] = null;
@@ -199,7 +199,7 @@ public class ImmutableArray<E> extends AbstractCollection<E> implements Iterable
       value = new_powers[i];
       new_powers[i] = null;
     }
-    return new ImmutableArray<E>(size + 1, new_powers);
+    return new ImmutableArray<E>(size + count, new_powers);
   }
 
   private boolean _isPowerOf8(long i) {

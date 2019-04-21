@@ -60,8 +60,8 @@ class ImmutableArrayTest {
     for (int i = 0; i < 100; i++) {
       assert(p.get(i) == i * i);
     }
-    for (int i = 100; i < 1000; i++) {
-      p = p.push(i * i);
+    for (int i = 100; i < 1000; i += 2) {
+      p = p.push(i * i, (i + 1) * (i + 1));
     }
     assert(p.size() == 1000);
     for (int i = 0; i < 1000; i++) {
