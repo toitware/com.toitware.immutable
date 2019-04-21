@@ -5,22 +5,49 @@
 package com.toitware.immutable;
 
 import java.util.AbstractCollection;
+import java.util.Arrays;
 import java.util.Collection;
 
 // An immutable array with O(log size) access to any element.  A new array that
 // differs at one position from this array can be made in O(log size) time.
-// A new array, one longer than the current one can be made in O(1) time using the
-// push() method.  (This is almost true - the push() method is currently O(log size),
-// but you would have to have a 128 bit implementation of the Java Language to notice
-// You don't.)
+// The binary tree that backs the immutable array is always kept as shallow as
+// possible on the right hand side though its max depth is still bounded by the
+// log of the size, rounded up.  This means that a new array, one longer than
+// the current one can be made in O(1) time using the push() method.  (This is
+// almost true - the push() method is currently O(log size), but you would have
+// to have a 128 bit implementation of the Java Language to notice You don't.)
 public class ImmutableArray<E> extends AbstractCollection<E> implements Iterable<E> {
   // Unlike the size() method this is not limited to the range of an int.
   public final long size;
+
+  // A tree that is 199 large has three full trees of 64 each in the leftmost
+  // _powers entry.  The next _powers entry has null, and the last
+  // points at an array with 7 elements.  If we add one element then the
+  // medium _powers entry gets a pointer to a 1-element array that points to
+  // the 8-entry leaf.
   private Object _powers[];
 
   // Create an empty ImmutableArray.
   public ImmutableArray() {
     size = 0;
+  }
+
+  // Make an ImmutableArray that is a shallow copy of an array.
+  public ImmutableArray(E array[]) {
+    size = array.length;
+    _powers = _createBacking(Arrays.asList(array));
+  }
+
+  // Make an ImmutableArray that is a shallow copy of another collection.
+  public ImmutableArray(Collection<? extends E> collection) {
+    if (collection instanceof ImmutableArray) {
+      ImmutableArray other = (ImmutableArray)collection;
+      size = other.size;
+      _powers = other._powers;
+    } else {
+      size = collection.size();
+      _powers = _createBacking(collection);
+    }
   }
 
   // To conform to the AbstractCollection interface this returns an int, but
@@ -38,12 +65,6 @@ public class ImmutableArray<E> extends AbstractCollection<E> implements Iterable
     size = len;
     _powers = pow;
   }
-
-  // A tree that is 199 large has three full trees of 64 each in the leftmost
-  // _powers entry.  The next _powers entry has null, and the last
-  // points at an array with 7 elements.  If we add one element then the
-  // medium _powers entry gets a pointer to a 1-element array that points to
-  // the 8-entry leaf.
 
   public E get(int index) {
     return get((long)index);
@@ -174,6 +195,39 @@ public class ImmutableArray<E> extends AbstractCollection<E> implements Iterable
     return push(value1).push(value2);
   }
 
+  private static Object[] _createBacking(Collection collection) {
+    int index = 0;
+    int size = collection.size();
+    Object batch[] = null;
+    int batch_index = 0;
+    Object powers[] = null;
+    for (Object o : collection) {
+      if (batch == null) batch = new Object[size - index < 8 ? size - index : 8];
+      batch[batch_index++] = o;
+      if (batch_index == 8) {
+        powers = _pushHelper(powers, index, 8, batch);
+        index += 8;
+        batch = null;
+        batch_index = 0;
+      }
+    }
+    if (batch_index != 0) {
+      if (powers == null) powers = new Object[1];
+      powers[0] = batch;
+    }
+    return powers;
+  }
+
+  // Return a new ImmutableArray that is the current array with all elements of
+  // an array added to the end.  May return itself if the provided array is
+  // empty.
+  public ImmutableArray<E> pushAll(E array[]) {
+    return pushAll(Arrays.asList(array));
+  }
+
+  // Return a new ImmutableArray that is the current array with all elements of
+  // a given collection added to the end.  May return itself if the provided
+  // collection is empty.
   public @SuppressWarnings("unchecked") ImmutableArray<E> pushAll(Collection<? extends E> collection) {
     if (collection.isEmpty()) return this;
     ImmutableArray<E> current = this;
@@ -183,7 +237,7 @@ public class ImmutableArray<E> extends AbstractCollection<E> implements Iterable
     // Pushes elements 8 at a time for better efficiency.
     for (E o : collection) {
       if (batch == null) {
-        if (current.size != 0 && (current.size & 7) == 0) {
+        if ((current.size & 7) == 0) {
           batch = new Object[8];
           batch_index = 0;
         } else {
@@ -193,7 +247,7 @@ public class ImmutableArray<E> extends AbstractCollection<E> implements Iterable
       }
       batch[batch_index++] = o;
       if (batch_index == 8) {
-        current = current._push_helper(8, batch);
+        current = new ImmutableArray<E>(current.size + 8, _pushHelper(current._powers, current.size, 8, batch));
         batch = new Object[8];
         batch_index = 0;
       }
@@ -214,19 +268,23 @@ public class ImmutableArray<E> extends AbstractCollection<E> implements Iterable
               _copyAppend(_powers == null ? null : (Object[])_powers[0], count, value1, value2)));
     }
     Object value = _copyAppend((Object[])_powers[0], count, value1, value2);
-    return _push_helper(count, value);
+    return new ImmutableArray<E>(size + count, _pushHelper(_powers, size, count, value));
   }
 
-  private ImmutableArray<E> _push_helper(int count, Object value) {
+  static private Object[] _pushHelper(Object old_powers[], long size, int count, Object value) {
     assert((size & (count - 1)) == 0);
     Object new_powers[];
     if (_isPowerOf8(size + count)) {
       // Need to grow _powers array.
-      new_powers = _copyAppend(_powers, 1, null, null);
-      new_powers[0] = null;
+      if (old_powers == null) {
+        new_powers = new Object[2];
+      } else {
+        new_powers = _copyAppend(old_powers, 1, null, null);
+        new_powers[0] = null;
+      }
     } else {
       // Don't need to grow _powers array.
-      new_powers = _copyBut(_powers, 0, null);
+      new_powers = _copyBut(old_powers, 0, null);
     }
     for (int i = 1; i < new_powers.length; i++) {
       Object new_value[] = _copyAppend((Object[])new_powers[i], 1, value, null);
@@ -235,10 +293,10 @@ public class ImmutableArray<E> extends AbstractCollection<E> implements Iterable
       value = new_powers[i];
       new_powers[i] = null;
     }
-    return new ImmutableArray<E>(size + count, new_powers);
+    return new_powers;
   }
 
-  private boolean _isPowerOf8(long i) {
+  static private boolean _isPowerOf8(long i) {
     // Quick check for power of 2.
     if ((i & (i - 1)) != 0) return false;
     // If it's a power of two we have to check for a power of 8.

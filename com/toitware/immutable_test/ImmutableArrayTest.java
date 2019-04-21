@@ -5,6 +5,7 @@
 package com.toitware.immutable_test;
 import com.toitware.immutable.ImmutableArray;
 import com.toitware.immutable.ImmutableArrayIterator;
+import java.util.Arrays;
 
 class ImmutableArrayTest {
   public static void main(String args[]) {
@@ -113,26 +114,45 @@ class ImmutableArrayTest {
   }
 
   private static void push_all_test() {
-    for (int i = 0; i <= 17; i++) {
-      for (int j = 0; j <= 17; j++) {
-        push_all_pair(factory(i), factory(j));
-        if (i != 0 & j != 0) {
-          push_all_pair(factory(i * 8 - 1), factory(j * 8 - 1));
-          push_all_pair(factory(i * 8 - 1), factory(j * 8 + 0));
-          push_all_pair(factory(i * 8 - 1), factory(j * 8 + 1));
-          push_all_pair(factory(i * 8 + 0), factory(j * 8 - 1));
-          push_all_pair(factory(i * 8 + 0), factory(j * 8 + 0));
-          push_all_pair(factory(i * 8 + 0), factory(j * 8 + 1));
-          push_all_pair(factory(i * 8 + 1), factory(j * 8 - 1));
-          push_all_pair(factory(i * 8 + 1), factory(j * 8 + 0));
-          push_all_pair(factory(i * 8 + 1), factory(j * 8 + 1));
+    for (int x = 0; x < 4; x++) {
+      for (int i = 0; i <= 17; i++) {
+        for (int j = 0; j <= 17; j++) {
+          push_all_pair(factory(i), factory(j), (x & 1) == 0, (x & 2) == 0);
+          if (i != 0 & j != 0) {
+            push_all_pair(factory(i * 8 - 1), factory(j * 8 - 1), (x & 1) == 0, (x & 2) == 0);
+            push_all_pair(factory(i * 8 - 1), factory(j * 8 + 0), (x & 1) == 0, (x & 2) == 0);
+            push_all_pair(factory(i * 8 - 1), factory(j * 8 + 1), (x & 1) == 0, (x & 2) == 0);
+            push_all_pair(factory(i * 8 + 0), factory(j * 8 - 1), (x & 1) == 0, (x & 2) == 0);
+            push_all_pair(factory(i * 8 + 0), factory(j * 8 + 0), (x & 1) == 0, (x & 2) == 0);
+            push_all_pair(factory(i * 8 + 0), factory(j * 8 + 1), (x & 1) == 0, (x & 2) == 0);
+            push_all_pair(factory(i * 8 + 1), factory(j * 8 - 1), (x & 1) == 0, (x & 2) == 0);
+            push_all_pair(factory(i * 8 + 1), factory(j * 8 + 0), (x & 1) == 0, (x & 2) == 0);
+            push_all_pair(factory(i * 8 + 1), factory(j * 8 + 1), (x & 1) == 0, (x & 2) == 0);
+          }
         }
       }
     }
   }
 
-  private static void push_all_pair(ImmutableArray<Integer> a1, ImmutableArray<Integer> a2) {
-    ImmutableArray<Integer> both = a1.pushAll(a2);
+  private static void push_all_pair(ImmutableArray<Integer> a1, ImmutableArray<Integer> a2, boolean a1_via_array, boolean a2_via_array) {
+    ImmutableArray<Integer> both;
+    if (!a1_via_array && !a2_via_array) {
+      both = a1.pushAll(a2);
+    } else if (a1_via_array && !a2_via_array) {
+      Integer array1[] = new Integer[(int)a1.size];
+      a1.toArray(array1);
+      both = new ImmutableArray<Integer>(Arrays.asList(array1)).pushAll(a2);
+    } else if (!a1_via_array && a2_via_array) {
+      Integer array2[] = new Integer[(int)a2.size];
+      a2.toArray(array2);
+      both = a1.pushAll(Arrays.asList(array2));
+    } else {
+      Integer array1[] = new Integer[(int)a1.size];
+      a1.toArray(array1);
+      Integer array2[] = new Integer[(int)a2.size];
+      a2.toArray(array2);
+      both = new ImmutableArray<Integer>(array1).pushAll(array2);
+    }
     assert(both.size == a1.size + a2.size);
     long idx = 0;
     for (Integer i : a1) {
