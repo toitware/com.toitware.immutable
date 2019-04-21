@@ -5,6 +5,7 @@
 package com.toitware.immutable;
 
 import java.util.AbstractCollection;
+import java.util.Collection;
 
 // An immutable array with O(log size) access to any element.  A new array that
 // differs at one position from this array can be made in O(log size) time.
@@ -173,6 +174,36 @@ public class ImmutableArray<E> extends AbstractCollection<E> implements Iterable
     return push(value1).push(value2);
   }
 
+  public @SuppressWarnings("unchecked") ImmutableArray<E> pushAll(Collection<? extends E> collection) {
+    if (collection.isEmpty()) return this;
+    ImmutableArray<E> current = this;
+    Object batch[] = null;
+    int batch_index = 0;
+    int index = 0;
+    // Pushes elements 8 at a time for better efficiency.
+    for (E o : collection) {
+      if (batch == null) {
+        if (current.size != 0 && (current.size & 7) == 0) {
+          batch = new Object[8];
+          batch_index = 0;
+        } else {
+          current = current.push(o);
+          continue;
+        }
+      }
+      batch[batch_index++] = o;
+      if (batch_index == 8) {
+        current = current._push_helper(8, batch);
+        batch = new Object[8];
+        batch_index = 0;
+      }
+    }
+    for (int i = 0; i < batch_index; i++) {
+      current = current.push((E)batch[i]);
+    }
+    return current;
+  }
+
   private ImmutableArray<E> _push(int count, Object value1, Object value2) {
     if (((size + count) & 7) != 0) {
       return new ImmutableArray<E>(
@@ -183,6 +214,11 @@ public class ImmutableArray<E> extends AbstractCollection<E> implements Iterable
               _copyAppend(_powers == null ? null : (Object[])_powers[0], count, value1, value2)));
     }
     Object value = _copyAppend((Object[])_powers[0], count, value1, value2);
+    return _push_helper(count, value);
+  }
+
+  private ImmutableArray<E> _push_helper(int count, Object value) {
+    assert((size & (count - 1)) == 0);
     Object new_powers[];
     if (_isPowerOf8(size + count)) {
       // Need to grow _powers array.

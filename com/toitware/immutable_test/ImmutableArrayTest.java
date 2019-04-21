@@ -8,6 +8,11 @@ import com.toitware.immutable.ImmutableArrayIterator;
 
 class ImmutableArrayTest {
   public static void main(String args[]) {
+    simple_test();
+    push_all_test();
+  }
+
+  private static void simple_test() {
     ImmutableArray<Integer> empty = new ImmutableArray<Integer>();
     assert(empty.size() == 0);
     assert(empty.isEmpty());
@@ -98,6 +103,43 @@ class ImmutableArrayTest {
     for (int i : p) {
       assert(i == j * j);
       j++;
+    }
+  }
+
+  private static ImmutableArray<Integer> factory(int n) {
+    ImmutableArray<Integer> a = new ImmutableArray<Integer>();
+    for (int i = 0; i < n; i++) a = a.push(i * i);
+    return a;
+  }
+
+  private static void push_all_test() {
+    for (int i = 0; i <= 17; i++) {
+      for (int j = 0; j <= 17; j++) {
+        push_all_pair(factory(i), factory(j));
+        if (i != 0 & j != 0) {
+          push_all_pair(factory(i * 8 - 1), factory(j * 8 - 1));
+          push_all_pair(factory(i * 8 - 1), factory(j * 8 + 0));
+          push_all_pair(factory(i * 8 - 1), factory(j * 8 + 1));
+          push_all_pair(factory(i * 8 + 0), factory(j * 8 - 1));
+          push_all_pair(factory(i * 8 + 0), factory(j * 8 + 0));
+          push_all_pair(factory(i * 8 + 0), factory(j * 8 + 1));
+          push_all_pair(factory(i * 8 + 1), factory(j * 8 - 1));
+          push_all_pair(factory(i * 8 + 1), factory(j * 8 + 0));
+          push_all_pair(factory(i * 8 + 1), factory(j * 8 + 1));
+        }
+      }
+    }
+  }
+
+  private static void push_all_pair(ImmutableArray<Integer> a1, ImmutableArray<Integer> a2) {
+    ImmutableArray<Integer> both = a1.pushAll(a2);
+    assert(both.size == a1.size + a2.size);
+    long idx = 0;
+    for (Integer i : a1) {
+      assert(both.get(idx++) == i);
+    }
+    for (Integer i : a2) {
+      assert(both.get(idx++) == i);
     }
   }
 }
