@@ -4,20 +4,37 @@
 
 package com.toitware.immutable;
 
-public class ImmutableArray<E> implements Iterable<E> {
-  public final long length;
+import java.util.AbstractCollection;
+
+// An immutable array with O(log size) access to any element.  A new array that
+// differs at one position from this array can be made in O(log size) time.
+// A new array, one longer than the current one can be made in O(1) time using the
+// push() method.  (This is almost true - the push() method is currently O(log size),
+// but you would have to have a 128 bit implementation of the Java Language to notice
+// You don't.)
+public class ImmutableArray<E> extends AbstractCollection<E> implements Iterable<E> {
+  // Unlike the size() method this is not limited to the range of an int.
+  public final long size;
   private Object _powers[];
 
+  // Create an empty ImmutableArray.
   public ImmutableArray() {
-    length = 0;
+    size = 0;
+  }
+
+  // To conform to the AbstractCollection interface this returns an int, but
+  // see also the property 'size'.
+  public int size() {
+    if (size > Integer.MAX_VALUE) return Integer.MAX_VALUE;
+    return (int)size;
   }
 
   public ImmutableArrayIterator<E> iterator() {
-    return new ImmutableArrayIterator<E>(length, _powers);
+    return new ImmutableArrayIterator<E>(size, _powers);
   }
 
   private ImmutableArray(long len, Object[] pow) {
-    length = len;
+    size = len;
     _powers = pow;
   }
 
@@ -27,8 +44,12 @@ public class ImmutableArray<E> implements Iterable<E> {
   // medium _powers entry gets a pointer to a 1-element array that points to
   // the 8-entry leaf.
 
-  public E at(long index) {
-    long len = length;
+  public E get(int index) {
+    return get((long)index);
+  }
+
+  public E get(long index) {
+    long len = size;
     if (index < 0 || index >= len) throw new IndexOutOfBoundsException();
     int length_tribbles = _powers.length - 1;
     while (true) {
@@ -51,7 +72,7 @@ public class ImmutableArray<E> implements Iterable<E> {
   }
 
   // Makes a copy of an array, but at the given index the value is substituted.
-  private Object[] _copyBut(Object old[], long index, Object value) {
+  static private Object[] _copyBut(Object old[], long index, Object value) {
     Object[] new_array = old == null ? new Object[1] : new Object[old.length];
     for (int i = 0; i < new_array.length; i++) {
       new_array[i] = (i == index) ? value : old[i];
@@ -59,8 +80,38 @@ public class ImmutableArray<E> implements Iterable<E> {
     return new_array;
   }
 
+  // Returns the first index whose element is equal to the needle, using
+  // equals().  Returns -1 if the needle is not found.
+  // Unlike the method of the same name on ArrayList, this one returns long.
+  public long indexOf(Object needle) {
+    long index = 0;
+    for (Object obj : this) {
+      if (needle == null || needle.equals(obj)) return index;
+      index++;
+    }
+    return -1;
+  }
+
+  // Returns the last index whose element is equal to the needle, using
+  // equals().  Unlike the method of the same name on ArrayList, this one
+  // returns long.  Returns -1 if the needle is not found.
+  // TODO: Currently takes O(nlogn).
+  public long lastIndexOf(Object needle) {
+    for (long index = size - 1; index >= 0; index--) {
+      Object obj = get(index);
+      if (needle == null || needle.equals(obj)) return index;
+    }
+    return -1;
+  }
+
+  // Since the collection is immutable there is no reason to actually build a
+  // clone.  Returns itself.
+  public Object clone() {
+    return this;
+  }
+
   // Makes a copy of an array, but appends the given values.
-  private Object[] _copyAppend(Object old[], int count, Object value1, Object value2) {
+  static private Object[] _copyAppend(Object old[], int count, Object value1, Object value2) {
     int len = old == null ? 0 : old.length;
     Object[] new_array = new Object[len + count];
     for (int i = 0; i < len; i++) {
@@ -71,8 +122,11 @@ public class ImmutableArray<E> implements Iterable<E> {
     return new_array;
   }
 
+  // Unlike set() on ArrayList, this returns a new immutable collection that differs
+  // from the original one at position index, having value at that position instead.
+  // Time taken is O(log size).
   public ImmutableArray<E> atPut(long index, E value) {
-    long len = length;
+    long len = size;
     if (index < 0 || index >= len) throw new IndexOutOfBoundsException();
     int length_tribbles = _powers.length - 1;
     while (true) {
@@ -80,7 +134,7 @@ public class ImmutableArray<E> implements Iterable<E> {
       long top_length_digit = len >>> (3 * length_tribbles);
       if (top_index_digit < top_length_digit) {
         return new ImmutableArray<E>(
-            length,
+            size,
             _copyBut(
                 _powers,
                 length_tribbles, 
@@ -102,21 +156,27 @@ public class ImmutableArray<E> implements Iterable<E> {
             _atPut(tribbles - 1, value, index - (idx << (tribbles * 3)), (Object[])array[(int)idx]));
   }
 
+  // Unlike add() on ArrayList, this returns a new immutable collection that differs
+  // from the original one only by having an extra element.
+  // Time taken is O(1), almost, but it has to allocate and initialize an object that
+  // has log2(size)/3 words.
   public ImmutableArray<E> push(E value) {
     return _push(1, value, null);
   }
 
+  // Push two values at once.  This is more efficient than two calls to push(E
+  // value) if the array has an even size.
   public ImmutableArray<E> push(E value1, E value2) {
-    if ((length & 1) == 0) {
+    if ((size & 1) == 0) {
       return _push(2, value1, value2);
     }
     return push(value1).push(value2);
   }
 
   public ImmutableArray<E> _push(int count, Object value1, Object value2) {
-    if (((length + count) & 7) != 0) {
+    if (((size + count) & 7) != 0) {
       return new ImmutableArray<E>(
-          length + count,
+          size + count,
           _copyBut(
               _powers,
               0,
@@ -124,7 +184,7 @@ public class ImmutableArray<E> implements Iterable<E> {
     }
     Object value = _copyAppend((Object[])_powers[0], count, value1, value2);
     Object new_powers[];
-    if (_isPowerOf8(length + 1)) {
+    if (_isPowerOf8(size + 1)) {
       // Need to grow _powers array.
       new_powers = _copyAppend(_powers, 1, null, null);
       new_powers[0] = null;
@@ -139,7 +199,7 @@ public class ImmutableArray<E> implements Iterable<E> {
       value = new_powers[i];
       new_powers[i] = null;
     }
-    return new ImmutableArray<E>(length + 1, new_powers);
+    return new ImmutableArray<E>(size + 1, new_powers);
   }
 
   private boolean _isPowerOf8(long i) {
