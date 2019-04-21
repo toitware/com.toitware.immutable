@@ -205,7 +205,7 @@ public class ImmutableArray<E> extends AbstractCollection<E> implements Iterable
       if (batch == null) batch = new Object[size - index < 8 ? size - index : 8];
       batch[batch_index++] = o;
       if (batch_index == 8) {
-        powers = _pushHelper(powers, index, 8, batch);
+        powers = _pushHelper(powers, index, 8, batch, true);
         index += 8;
         batch = null;
         batch_index = 0;
@@ -231,6 +231,7 @@ public class ImmutableArray<E> extends AbstractCollection<E> implements Iterable
   public @SuppressWarnings("unchecked") ImmutableArray<E> pushAll(Collection<? extends E> collection) {
     if (collection.isEmpty()) return this;
     ImmutableArray<E> current = this;
+    boolean can_reuse = false;
     Object batch[] = null;
     int batch_index = 0;
     int index = 0;
@@ -242,12 +243,14 @@ public class ImmutableArray<E> extends AbstractCollection<E> implements Iterable
           batch_index = 0;
         } else {
           current = current.push(o);
+          can_reuse = true;
           continue;
         }
       }
       batch[batch_index++] = o;
       if (batch_index == 8) {
-        current = new ImmutableArray<E>(current.size + 8, _pushHelper(current._powers, current.size, 8, batch));
+        current = new ImmutableArray<E>(current.size + 8, _pushHelper(current._powers, current.size, 8, batch, can_reuse));
+        can_reuse = true;
         batch = new Object[8];
         batch_index = 0;
       }
@@ -268,10 +271,10 @@ public class ImmutableArray<E> extends AbstractCollection<E> implements Iterable
               _copyAppend(_powers == null ? null : (Object[])_powers[0], count, value1, value2)));
     }
     Object value = _copyAppend((Object[])_powers[0], count, value1, value2);
-    return new ImmutableArray<E>(size + count, _pushHelper(_powers, size, count, value));
+    return new ImmutableArray<E>(size + count, _pushHelper(_powers, size, count, value, false));
   }
 
-  static private Object[] _pushHelper(Object old_powers[], long size, int count, Object value) {
+  static private Object[] _pushHelper(Object old_powers[], long size, int count, Object value, boolean can_reuse) {
     assert((size & (count - 1)) == 0);
     Object new_powers[];
     if (_isPowerOf8(size + count)) {
@@ -284,7 +287,12 @@ public class ImmutableArray<E> extends AbstractCollection<E> implements Iterable
       }
     } else {
       // Don't need to grow _powers array.
-      new_powers = _copyBut(old_powers, 0, null);
+      if (can_reuse) {
+        new_powers = old_powers;
+        assert(new_powers[0] == null);
+      } else {
+        new_powers = _copyBut(old_powers, 0, null);
+      }
     }
     for (int i = 1; i < new_powers.length; i++) {
       Object new_value[] = _copyAppend((Object[])new_powers[i], 1, value, null);
