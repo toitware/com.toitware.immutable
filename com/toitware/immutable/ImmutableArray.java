@@ -6,36 +6,36 @@ package com.toitware.immutable;
 
 public class ImmutableArray<E> implements Iterable<E> {
   public final long length;
-  private Object powers[];
+  private Object _powers[];
 
   public ImmutableArray() {
     length = 0;
   }
 
   public ImmutableArrayIterator<E> iterator() {
-    return new ImmutableArrayIterator<E>(this, powers);
+    return new ImmutableArrayIterator<E>(length, _powers);
   }
 
   private ImmutableArray(long len, Object[] pow) {
     length = len;
-    powers = pow;
+    _powers = pow;
   }
 
   // A tree that is 199 large has three full trees of 64 each in the leftmost
-  // powers entry.  The next powers entry has null, and the last
+  // _powers entry.  The next _powers entry has null, and the last
   // points at an array with 7 elements.  If we add one element then the
-  // medium powers entry gets a pointer to a 1-element array that points to
+  // medium _powers entry gets a pointer to a 1-element array that points to
   // the 8-entry leaf.
 
   public E at(long index) {
     long len = length;
     if (index < 0 || index >= len) throw new IndexOutOfBoundsException();
-    int length_tribbles = powers.length - 1;
+    int length_tribbles = _powers.length - 1;
     while (true) {
       long top_index_digit = index >>> (3 * length_tribbles);
       long top_length_digit = len >>> (3 * length_tribbles);
       if (top_index_digit < top_length_digit) {
-        return _get(length_tribbles, index, powers[length_tribbles]);
+        return _get(length_tribbles, index, _powers[length_tribbles]);
       }
       index -= top_index_digit << (3 * length_tribbles);
       len -= top_index_digit << (3 * length_tribbles);
@@ -74,7 +74,7 @@ public class ImmutableArray<E> implements Iterable<E> {
   public ImmutableArray<E> atPut(long index, E value) {
     long len = length;
     if (index < 0 || index >= len) throw new IndexOutOfBoundsException();
-    int length_tribbles = powers.length - 1;
+    int length_tribbles = _powers.length - 1;
     while (true) {
       long top_index_digit = index >>> (3 * length_tribbles);
       long top_length_digit = len >>> (3 * length_tribbles);
@@ -82,9 +82,9 @@ public class ImmutableArray<E> implements Iterable<E> {
         return new ImmutableArray<E>(
             length,
             _copyBut(
-                powers,
+                _powers,
                 length_tribbles, 
-                _atPut(length_tribbles, value, index, (Object[])powers[length_tribbles])));
+                _atPut(length_tribbles, value, index, (Object[])_powers[length_tribbles])));
       }
       index -= top_index_digit << (3 * length_tribbles);
       len -= top_index_digit << (3 * length_tribbles);
@@ -118,19 +118,19 @@ public class ImmutableArray<E> implements Iterable<E> {
       return new ImmutableArray<E>(
           length + count,
           _copyBut(
-              powers,
+              _powers,
               0,
-              _copyAppend(powers == null ? null : (Object[])powers[0], count, value1, value2)));
+              _copyAppend(_powers == null ? null : (Object[])_powers[0], count, value1, value2)));
     }
-    Object value = _copyAppend((Object[])powers[0], count, value1, value2);
+    Object value = _copyAppend((Object[])_powers[0], count, value1, value2);
     Object new_powers[];
     if (_isPowerOf8(length + 1)) {
-      // Need to grow powers array.
-      new_powers = _copyAppend(powers, 1, null, null);
+      // Need to grow _powers array.
+      new_powers = _copyAppend(_powers, 1, null, null);
       new_powers[0] = null;
     } else {
-      // Don't need to grow powers array.
-      new_powers = _copyBut(powers, 0, null);
+      // Don't need to grow _powers array.
+      new_powers = _copyBut(_powers, 0, null);
     }
     for (int i = 1; i < new_powers.length; i++) {
       Object new_value[] = _copyAppend((Object[])new_powers[i], 1, value, null);
