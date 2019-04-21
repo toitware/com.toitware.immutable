@@ -14,7 +14,7 @@ class ImmutableArrayTest {
   }
 
   private static void simple_test() {
-    ImmutableArray<Integer> empty = new ImmutableArray<Integer>();
+    ImmutableArray<Integer> empty = new ImmutableArray<>();
     assert(empty.size() == 0);
     assert(empty.isEmpty());
     for (int i : empty) {
@@ -44,7 +44,7 @@ class ImmutableArrayTest {
     assert(two_b.get(0) == 42);
     assert(two_a.get(1) == 103);
     assert(two_b.get(1) == 7);
-    ImmutableArray<Integer> p = new ImmutableArray<Integer>();
+    ImmutableArray<Integer> p = new ImmutableArray<>();
     for (int i = 0; i < 10; i++) {
       p = p.push(i * i);
     }
@@ -108,7 +108,7 @@ class ImmutableArrayTest {
   }
 
   private static ImmutableArray<Integer> factory(int n) {
-    ImmutableArray<Integer> a = new ImmutableArray<Integer>();
+    ImmutableArray<Integer> a = new ImmutableArray<>();
     for (int i = 0; i < n; i++) a = a.push(i * i);
     return a;
   }
@@ -141,7 +141,7 @@ class ImmutableArrayTest {
     } else if (a1_via_array && !a2_via_array) {
       Integer array1[] = new Integer[(int)a1.size];
       a1.toArray(array1);
-      both = new ImmutableArray<Integer>(Arrays.asList(array1)).pushAll(a2);
+      both = new ImmutableArray<>(Arrays.asList(array1)).pushAll(a2);
     } else if (!a1_via_array && a2_via_array) {
       Integer array2[] = new Integer[(int)a2.size];
       a2.toArray(array2);
@@ -151,7 +151,7 @@ class ImmutableArrayTest {
       a1.toArray(array1);
       Integer array2[] = new Integer[(int)a2.size];
       a2.toArray(array2);
-      both = new ImmutableArray<Integer>(array1).pushAll(array2);
+      both = new ImmutableArray<>(array1).pushAll(array2);
     }
     assert(both.size == a1.size + a2.size);
     long idx = 0;
