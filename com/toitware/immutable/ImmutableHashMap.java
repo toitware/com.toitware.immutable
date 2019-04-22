@@ -162,7 +162,7 @@ public class ImmutableHashMap<K, V> {
   static final long INDEX_OFFSET = 3;  // Value was overwritten at given index.
 
   private ImmutableHashMap<K, V> _put(K key, V value, boolean only_if_absent, boolean only_if_present) {
-    long result = _insert(_backing == null ? 0 : _backing.size, key, value, only_if_absent, only_if_present);
+    long result = _insert(_backing == null ? 0 : _backing.size, key, value, only_if_absent, only_if_present, true);
     if (result == REBUILD) {
       return _rebuild_index()._put(key, value, only_if_absent, only_if_present);
     } else if (result == APPEND) {
@@ -178,7 +178,7 @@ public class ImmutableHashMap<K, V> {
     }
   }
 
-  private long _insert(long backing_size, K key, V value, boolean only_if_absent, boolean only_if_present) {
+  private long _insert(long backing_size, K key, V value, boolean only_if_absent, boolean only_if_present, boolean check_for_oversized_backing) {
     if (_index == null) {
       if (only_if_present) return DO_NOTHING;
       // A new ImmutableHashMap with no slots must be 'rebuilt' before entries
@@ -187,14 +187,16 @@ public class ImmutableHashMap<K, V> {
       return REBUILD;
     }
     int used = _usedSlots();
-    if (used + (used >> 2) >= _index.length()
-        || (backing_size > used + 2 && backing_size > used * 3)
-        || backing_size == _MAX_ENTRIES * 2) {
-      // If there is not 1.25 times as much space as we need, rebuild with more space.
-      // Also rebuild when the backing is clogged with deleted entries.
-      //if (used + (used >> 2) >= _index.length()) System.out.println("Used of " + used + " too much for index length of " + _index.length());
-      //if (backing_size > used * 3) System.out.println("backing_size of " + backing_size + " too much for used of " + used);
-      return REBUILD;
+    if (check_for_oversized_backing) {
+      if (used + (used >> 2) >= _index.length()
+          || (backing_size > used + 2 && backing_size > used * 3)
+          || backing_size == _MAX_ENTRIES * 2) {
+        // If there is not 1.25 times as much space as we need, rebuild with more space.
+        // Also rebuild when the backing is clogged with deleted entries.
+        //if (used + (used >> 2) >= _index.length()) System.out.println("Used of " + used + " too much for index length of " + _index.length());
+        //if (backing_size > used * 3) System.out.println("backing_size of " + backing_size + " too much for used of " + used);
+        return REBUILD;
+      }
     }
     int hash = key.hashCode();
     int slot = hash & _indexMask();
@@ -284,7 +286,7 @@ public class ImmutableHashMap<K, V> {
     if (index_size > _MAX_INDEX_SIZE) throw new UnsupportedOperationException();
     // Determine whether there are so many deleted elements in the backing
     // store that we need to rebuild it to squeeze them out.
-    boolean squeeze = _backing == null || (_backing.size > _size + 2 && _backing.size > (long)(_size * 1.2));
+    boolean squeeze = _backing == null || (_backing.size > _size * 2 + 4 && _backing.size > (long)(_size * 2 * 1.2));
     AtomicIntegerArray new_index = new AtomicIntegerArray(index_size + 1);
     ImmutableHashMap<K, V> new_map = squeeze ?
         new ImmutableHashMap<K, V>(0, new ImmutableArray<>(), new_index) :
@@ -303,7 +305,7 @@ public class ImmutableHashMap<K, V> {
               // access to the new index yet.
               new_map = new_map.put(key, (V)o);
             } else {
-              long action = new_map._insert(count, key, (V)o, false, false);
+              long action = new_map._insert(count, key, (V)o, false, false, false);
               // We are reusing the backing so the key and value are already appended.
               assert(action == APPEND);
             }
