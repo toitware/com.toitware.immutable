@@ -65,7 +65,8 @@ class ImmutableHashMapTest {
 
   public static void main(String args[]) {
     simpleTest();
-    randomTest();
+    randomTest(true);
+    randomTest(false);
   }
 
   private static void simpleTest() {
@@ -97,10 +98,10 @@ class ImmutableHashMapTest {
     check_fbet(fbet);
   }
 
-  private @SuppressWarnings("unchecked") static void randomTest() {
+  private @SuppressWarnings("unchecked") static void randomTest(boolean with_deletion) {
     final int MAPS = 10;
     final int KEYS = 30;
-    final int ITERATIONS = 100000;
+    final int ITERATIONS = 50000;
     ImmutableHashMap<String, Object> maps[] = new ImmutableHashMap[MAPS];
     for (int i = 0; i < MAPS; i++) maps[i] = new ImmutableHashMap<String, Object>();
     HashMap<String, Object> control_maps[] = new HashMap[MAPS];
@@ -115,13 +116,24 @@ class ImmutableHashMapTest {
       String key = "" + random.nextInt(KEYS);
       String value = random.nextBoolean() ? key : "value" + key;
       control_maps[dest] = new HashMap<String, Object>(control_maps[source]);
-      if (random.nextInt(3) < 2) {
-        // Add entry.
-        maps[dest] = maps[source].put(key, value);
-        control_maps[dest].put(key, value);
+      if (with_deletion) {
+        if (random.nextInt(3) < 2) {
+          // Add entry.
+          maps[dest] = maps[source].put(key, value);
+          control_maps[dest].put(key, value);
+        } else {
+          maps[dest] = maps[source].remove(key);
+          control_maps[dest].remove(key);
+        }
       } else {
-        maps[dest] = maps[source].remove(key);
-        control_maps[dest].remove(key);
+        if (random.nextInt(30) == 0) {
+          maps[dest] = new ImmutableHashMap<>();
+          control_maps[dest] = new HashMap<>();
+        } else {
+          // Add entry.
+          maps[dest] = maps[source].put(key, value);
+          control_maps[dest].put(key, value);
+        }
       }
       for (int i = 0; i < MAPS; i++) {
         assert(maps[i].size() == control_maps[i].size());

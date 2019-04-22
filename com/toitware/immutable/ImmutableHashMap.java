@@ -156,21 +156,45 @@ public class ImmutableHashMap<K, V> {
     return _put(key, value, false, true);
   }
 
+  static final long REBUILD = 0;       // Rebuild index and retry.
+  static final long APPEND = 1;        // Append key-value pair.
+  static final long DO_NOTHING = 2;    // Return this (no change).
+  static final long INDEX_OFFSET = 3;  // Value was overwritten at given index.
+
   private ImmutableHashMap<K, V> _put(K key, V value, boolean only_if_absent, boolean only_if_present) {
+    long result = _insert(_backing == null ? 0 : _backing.size, key, value, only_if_absent, only_if_present);
+    if (result == REBUILD) {
+      return _rebuild_index()._put(key, value, only_if_absent, only_if_present);
+    } else if (result == APPEND) {
+      // Backing is an immutable array, create a new one.  This is almost an O(1) operation.
+      ImmutableArray<Object> new_backing = _backing.push(key, value);
+      return new ImmutableHashMap<K, V>(_size + 1, new_backing, _index);
+    } else if (result == DO_NOTHING) {
+      return this;
+    } else {
+      long index = result - INDEX_OFFSET;
+      ImmutableArray<Object> new_backing = _backing.atPut(index * 2 + 1, value);
+      return new ImmutableHashMap<K, V>(_size, new_backing, _index);
+    }
+  }
+
+  private long _insert(long backing_size, K key, V value, boolean only_if_absent, boolean only_if_present) {
     if (_index == null) {
-      if (only_if_present) return this;
+      if (only_if_present) return DO_NOTHING;
       // A new ImmutableHashMap with no slots must be 'rebuilt' before entries
       // can be added.
       //System.out.println("Empty map, rebuilding");
-      return _rebuild_index()._put(key, value, only_if_absent, only_if_present);
+      return REBUILD;
     }
     int used = _usedSlots();
-    if (used + (used >> 2) >= _index.length() || _backing.size > used * 3 || _backing.size == _MAX_ENTRIES * 2) {
+    if (used + (used >> 2) >= _index.length()
+        || (backing_size > used + 2 && backing_size > used * 3)
+        || backing_size == _MAX_ENTRIES * 2) {
       // If there is not 1.25 times as much space as we need, rebuild with more space.
       // Also rebuild when the backing is clogged with deleted entries.
       //if (used + (used >> 2) >= _index.length()) System.out.println("Used of " + used + " too much for index length of " + _index.length());
-      //if (_backing.size > used * 3) System.out.println("_backing size of " + _backing.size + " too much for used of " + used);
-      return _rebuild_index()._put(key, value, only_if_absent, only_if_present);
+      //if (backing_size > used * 3) System.out.println("backing_size of " + backing_size + " too much for used of " + used);
+      return REBUILD;
     }
     int hash = key.hashCode();
     int slot = hash & _indexMask();
@@ -178,9 +202,9 @@ public class ImmutableHashMap<K, V> {
     while (true) {
       //System.out.println("Probing for key " + key + " slot " + slot + " indexMask " + _indexMask());
       if (_isFree(slot)) {
-        if (only_if_present) return this;
+        if (only_if_present) return DO_NOTHING;
         // Found free slot for new entry.
-        int index = _backing.size() >>> 1;
+        int index = (int)(backing_size >>> 1);
         // Try to add entry.
         boolean success = _takeFreeSlot(index, hash, slot);
         if (!success) {
@@ -188,19 +212,17 @@ public class ImmutableHashMap<K, V> {
           // intensively updating the index.  We make a new index, which is
           // ours alone and retry.
           //System.out.println("CAS failed");
-          return _rebuild_index()._put(key, value, only_if_absent, only_if_present);
+          return REBUILD;
         }
         if (_size == _MAX_ENTRIES) {
           throw new UnsupportedOperationException();
         }
-        ImmutableArray<Object> new_backing = _backing.push(key, value);
         // Backing is an immutable array, create a new one.  This is almost an O(1) operation.
-        return new ImmutableHashMap<K, V>(_size + 1, new_backing, _index);
+        return APPEND;
       }
       if (_matches(key, hash, slot)) {
-        if (only_if_absent) return this;
-        ImmutableArray<Object> new_backing = _backing.atPut(_indexAt(slot) * 2 + 1, value);
-        return new ImmutableHashMap<K, V>(_size, new_backing, _index);
+        if (only_if_absent) return DO_NOTHING;
+        return INDEX_OFFSET + _indexAt(slot);
       }
       int new_slot = (slot + step) & _indexMask();
       step++;
@@ -210,7 +232,7 @@ public class ImmutableHashMap<K, V> {
         // index, which is ours alone and retry.
         //if (slot == new_slot) System.out.println("Search wrapped around");
         //if (used != _usedSlots()) System.out.println("Someone interfered with the usedness");
-        return _rebuild_index()._put(key, value, only_if_absent, only_if_present);
+        return REBUILD;
       }
       slot = new_slot;
     }
@@ -260,22 +282,34 @@ public class ImmutableHashMap<K, V> {
     index_size++;
     assert(index_size >= _size);
     if (index_size > _MAX_INDEX_SIZE) throw new UnsupportedOperationException();
-    ImmutableHashMap<K, V> new_map = new ImmutableHashMap<K, V>(0, new ImmutableArray<>(), new AtomicIntegerArray(index_size + 1));
-    boolean k = true;
+    // Determine whether there are so many deleted elements in the backing
+    // store that we need to rebuild it to squeeze them out.
+    boolean squeeze = _backing == null || (_backing.size > _size + 2 && _backing.size > (long)(_size * 1.2));
+    AtomicIntegerArray new_index = new AtomicIntegerArray(index_size + 1);
+    ImmutableHashMap<K, V> new_map = squeeze ?
+        new ImmutableHashMap<K, V>(0, new ImmutableArray<>(), new_index) :
+        new ImmutableHashMap<K, V>(_size, _backing, new_index);
+    long count = 0;
     K key = null;
     if (_backing != null) {
       for (Object o : _backing) {
-        if (k) {
+        if ((count & 1) == 0) {
           key = (K)o;
-          k = false;
         } else {
           if (_DELETED_KEY != key) {
-            // This should never call _rebuild_index because the index is big
-            // enough and there is no contention.
-            new_map = new_map.put(key, (V)o);
+            if (squeeze) {
+              // This should never call _rebuild_index because the index is big
+              // enough and there is no contention, since no other threads have
+              // access to the new index yet.
+              new_map = new_map.put(key, (V)o);
+            } else {
+              long action = new_map._insert(count, key, (V)o, false, false);
+              // We are reusing the backing so the key and value are already appended.
+              assert(action == APPEND);
+            }
           }
-          k = true;
         }
+        count++;
       }
     }
     return new_map;
