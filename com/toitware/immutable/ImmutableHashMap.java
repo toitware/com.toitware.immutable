@@ -8,6 +8,7 @@ import java.util.AbstractCollection;
 import java.util.AbstractMap;
 import java.util.Collection;
 import java.util.concurrent.atomic.AtomicIntegerArray;
+import java.util.Iterator;
 import java.util.Map;
 import java.util.Set;
 
@@ -240,19 +241,15 @@ public class ImmutableHashMap<K, V> {
     }
   }
 
-  private class KeySet<K, V> {
-    private ImmutableHashMap<K, V> _map;
-    public KeySet(ImmutableHashMap<K, V> map) {
-      _map = map;
-    }
-  }
-
   public Set<Map.Entry<K, V>> entrySet() {
     throw new UnsupportedOperationException();
   }
 
-  public Set<K> keySet() {
-    throw new UnsupportedOperationException();
+  // Called keySet to match the method in java.util.HashMap, but this is just a
+  // collection, which you can iterate over.  Iteration is in insertion order.
+  // Removing a key and reinserting it puts it at the end of the iteration order.
+  public Collection<K> keySet() {
+    return new Keys<K>(this);
   }
 
   public Collection<V> values() {
@@ -315,5 +312,42 @@ public class ImmutableHashMap<K, V> {
       }
     }
     return new_map;
+  }
+
+  private class Keys<K> extends AbstractCollection <K> {
+    private ImmutableHashMap<K, ?> _map;
+    public Keys(ImmutableHashMap<K, ?> map) {
+      _map = map;
+    }
+    public int size() { return _map.size(); }
+    public Iterator<K> iterator() { return new KeyIterator<K>(this); }
+  }
+
+  private class KeyIterator<K> implements Iterator<K> {
+    private int _index;
+    private int _limit;
+    private ImmutableArrayIterator _backing_iterator;
+
+    public KeyIterator(Keys<K> keys) {
+      _index = 0;
+      _limit = keys._map.size();
+      ImmutableArray<Object> backing = keys._map._backing;
+      _backing_iterator = backing == null ? null : backing.iterator();
+    }
+
+    public boolean hasNext() {
+      return _index < _limit;
+    }
+
+    public @SuppressWarnings("unchecked") K next() {
+      while (true) {
+        K key = (K)_backing_iterator.next();
+        _backing_iterator.next();  // Consume value.
+        if (_DELETED_KEY != key) {
+          _index++;
+          return key;
+        }
+      }
+    }
   }
 }

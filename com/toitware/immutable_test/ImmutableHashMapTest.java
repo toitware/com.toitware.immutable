@@ -9,6 +9,13 @@ import java.util.HashMap;
 import java.util.Random;
 
 class ImmutableHashMapTest {
+  public static void main(String args[]) {
+    simpleTest();
+    randomTest(true);
+    randomTest(false);
+    iteratorTest();
+  }
+
   static private void check_empty(ImmutableHashMap<String, Object> empty) {
     assert(empty.isEmpty());
     assert(empty.size() == 0);
@@ -61,12 +68,6 @@ class ImmutableHashMapTest {
     assert(fbet.get("to") == null);
     assert(fbet.getOrDefault("bar", "baz") == "baz");
     assert(fbet.getOrDefault("to", "baz") == "baz");
-  }
-
-  public static void main(String args[]) {
-    simpleTest();
-    randomTest(true);
-    randomTest(false);
   }
 
   private static void simpleTest() {
@@ -149,5 +150,49 @@ class ImmutableHashMapTest {
         }
       }
     }
+  }
+
+  static public void iteratorTest() {
+    ImmutableHashMap<String, Object> empty = new ImmutableHashMap<>();
+    check_empty(empty);
+
+    for (String k : empty.keySet()) {
+      assert(false);
+    }
+
+    ImmutableHashMap<String, Object> foo_bar = empty.put("foo", "bar");
+    check_foo_bar(foo_bar);
+
+    int count = 0;
+    for (String k : foo_bar.keySet()) {
+      assert(k == "foo");
+      assert(foo_bar.get(k) == "bar");
+      count++;
+    }
+    assert(count == 1);
+
+    ImmutableHashMap<String, Object> ten = empty;
+    for (int i = 0; i < 10; i++) {
+      ten = ten.put("" + i, "value" + i);
+    }
+    assert(ten.size() == 10);
+    int i = '0';
+    for (String k : ten.keySet()) {
+      assert(k.length() == 1);
+      assert(k.charAt(0) == i++);
+      assert(ten.get(k).equals("value" + k));
+    }
+    assert(i == '0' + 10);
+
+    ImmutableHashMap<String, Object> removed = ten.remove("4");
+    assert(removed.size() == 9);
+    i = '0';
+    for (String k : removed.keySet()) {
+      assert(k.length() == 1);
+      if (i == '4') i++;
+      assert(k.charAt(0) == i++);
+      assert(ten.get(k).equals("value" + k));
+    }
+    assert(i == '0' + 10);
   }
 }
