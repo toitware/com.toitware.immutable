@@ -184,6 +184,15 @@ class ImmutableHashMapTest {
     }
     assert(i == '0' + 10);
 
+    i = '0';
+    for (Object v : ten.values()) {
+      String s = (String)v;
+      assert(s.length() == 6);
+      assert(s.equals("value" + (i - '0')));
+      assert(s.charAt(5) == i++);
+    }
+    assert(i == '0' + 10);
+
     ImmutableHashMap<String, Object> removed = ten.remove("4");
     assert(removed.size() == 9);
     i = '0';
@@ -194,5 +203,16 @@ class ImmutableHashMapTest {
       assert(ten.get(k).equals("value" + k));
     }
     assert(i == '0' + 10);
+
+    i = '0';
+    for (Object v : removed.values()) {
+      String s = (String)v;
+      assert(s.length() == 6);
+      if (i == '4') i++;
+      assert(s.equals("value" + (i - '0')));
+      assert(s.charAt(5) == i++);
+    }
+    assert(i == '0' + 10);
+
   }
 }
