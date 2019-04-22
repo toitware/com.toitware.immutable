@@ -430,17 +430,18 @@ public class ImmutableHashMap<K, V> {
   }
 
   public @SuppressWarnings("unchecked") void forEach(BiConsumer<? super K, ? super V> action) {
-    long count = 0;
-    K key = null;
-    for (Object o : _backing) {
-      if ((count & 1) == 0) {
-        key = (K)o;
+    long count_box[] = new long[1];
+    Object key_box[] = new Object[1];
+    _backing.forEach((o)-> {
+      if ((count_box[0] & 1) == 0) {
+        key_box[0] = o;
       } else {
+        K key = (K)key_box[0];
         if (_DELETED_KEY != key) {
           action.accept(key, (V)o);
         }
       }
-      count++;
-    }
+      count_box[0]++;
+    });
   }
 }
