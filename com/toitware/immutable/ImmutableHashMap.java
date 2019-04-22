@@ -241,8 +241,11 @@ public class ImmutableHashMap<K, V> {
     }
   }
 
-  public Set<Map.Entry<K, V>> entrySet() {
-    throw new UnsupportedOperationException();
+  // Called entrySet to match the method in java.util.HashMap, but this is just a
+  // collection, which you can iterate over.  Iteration is in insertion order.
+  // Removing a key and reinserting it puts it at the end of the iteration order.
+  public Collection<Map.Entry<K, V>> entrySet() {
+    return new KeyValues<K, V>(this);
   }
 
   // Called keySet to match the method in java.util.HashMap, but this is just a
@@ -383,6 +386,43 @@ public class ImmutableHashMap<K, V> {
         if (_DELETED_KEY != key) {
           _index++;
           return value;
+        }
+      }
+    }
+  }
+
+  private class KeyValues<K, V> extends AbstractCollection<Map.Entry<K, V>> {
+    private ImmutableHashMap<K, V> _map;
+    public KeyValues(ImmutableHashMap<K, V> map) {
+      _map = map;
+    }
+    public int size() { return _map.size(); }
+    public Iterator<Map.Entry<K, V>> iterator() { return new KeyValueIterator<K, V>(this); }
+  }
+
+  private class KeyValueIterator<K, V> implements Iterator<Map.Entry<K, V>> {
+    private int _index;
+    private int _limit;
+    private Iterator<Object> _backing_iterator;
+
+    public KeyValueIterator(KeyValues<K, V> keyValues) {
+      _index = 0;
+      _limit = keyValues._map.size();
+      ImmutableArray<Object> backing = keyValues._map._backing;
+      _backing_iterator = backing == null ? null : backing.iterator();
+    }
+
+    public boolean hasNext() {
+      return _index < _limit;
+    }
+
+    public @SuppressWarnings("unchecked") Map.Entry<K, V> next() {
+      while (true) {
+        K key = (K)_backing_iterator.next();
+        V value = (V)_backing_iterator.next();
+        if (_DELETED_KEY != key) {
+          _index++;
+          return new AbstractMap.SimpleImmutableEntry<K, V>(key, value);
         }
       }
     }

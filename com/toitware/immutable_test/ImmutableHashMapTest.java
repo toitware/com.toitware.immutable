@@ -6,6 +6,7 @@ package com.toitware.immutable_test;
 import com.toitware.immutable.ImmutableHashMap;
 import java.util.Arrays;
 import java.util.HashMap;
+import java.util.Map;
 import java.util.Random;
 
 class ImmutableHashMapTest {
@@ -214,5 +215,33 @@ class ImmutableHashMapTest {
     }
     assert(i == '0' + 10);
 
+    i = '0';
+    for (Map.Entry<String, Object> entry : ten.entrySet()) {
+      String k = entry.getKey();
+      String v = (String)(entry.getValue());
+      assert(k.length() == 1);
+      assert(k.charAt(0) == i);
+      assert(ten.get(k).equals("value" + k));
+      assert(ten.get(k).equals(v));
+      assert(v.length() == 6);
+      assert(v.equals("value" + (i - '0')));
+      assert(v.charAt(5) == i++);
+    }
+    assert(i == '0' + 10);
+
+    i = '0';
+    for (Map.Entry<String, Object> entry : removed.entrySet()) {
+      String k = entry.getKey();
+      String v = (String)(entry.getValue());
+      if (i == '4') i++;
+      assert(k.length() == 1);
+      assert(k.charAt(0) == i);
+      assert(removed.get(k).equals("value" + k));
+      assert(removed.get(k).equals(v));
+      assert(v.length() == 6);
+      assert(v.equals("value" + (i - '0')));
+      assert(v.charAt(5) == i++);
+    }
+    assert(i == '0' + 10);
   }
 }
