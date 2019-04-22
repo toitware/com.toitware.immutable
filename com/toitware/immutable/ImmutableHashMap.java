@@ -292,28 +292,33 @@ public class ImmutableHashMap<K, V> {
     ImmutableHashMap<K, V> new_map = squeeze ?
         new ImmutableHashMap<K, V>(0, new ImmutableArray<>(), new_index) :
         new ImmutableHashMap<K, V>(_size, _backing, new_index);
-    long count = 0;
-    K key = null;
     if (_backing != null) {
-      for (Object o : _backing) {
+      long count_box[] = new long[1];
+      Object key_box[] = new Object[1];
+      ImmutableHashMap<K, V> map_box[] = new ImmutableHashMap[1];
+      map_box[0] = new_map;
+      _backing.forEach((o)-> {
+        long count = count_box[0];
         if ((count & 1) == 0) {
-          key = (K)o;
+          key_box[0] = o;
         } else {
-          if (_DELETED_KEY != key) {
+          if (_DELETED_KEY != key_box[0]) {
+            K key = (K)key_box[0];
             if (squeeze) {
               // This should never call _rebuild_index because the index is big
               // enough and there is no contention, since no other threads have
               // access to the new index yet.
-              new_map = new_map.put(key, (V)o);
+              map_box[0] = map_box[0].put(key, (V)o);
             } else {
-              long action = new_map._insert(count, key, (V)o, false, false, false);
+              long action = map_box[0]._insert(count, key, (V)o, false, false, false);
               // We are reusing the backing so the key and value are already appended.
               assert(action == APPEND);
             }
           }
         }
-        count++;
-      }
+        count_box[0]++;
+      });
+      new_map = map_box[0];
     }
     return new_map;
   }
@@ -345,11 +350,11 @@ public class ImmutableHashMap<K, V> {
 
     public @SuppressWarnings("unchecked") K next() {
       while (true) {
-        K key = (K)_backing_iterator.next();
+        Object key = _backing_iterator.next();
         _backing_iterator.next();  // Consume value.
         if (_DELETED_KEY != key) {
           _index++;
-          return key;
+          return (K)key;
         }
       }
     }
@@ -419,11 +424,11 @@ public class ImmutableHashMap<K, V> {
 
     public @SuppressWarnings("unchecked") Map.Entry<K, V> next() {
       while (true) {
-        K key = (K)_backing_iterator.next();
+        Object key = _backing_iterator.next();
         V value = (V)_backing_iterator.next();
         if (_DELETED_KEY != key) {
           _index++;
-          return new AbstractMap.SimpleImmutableEntry<K, V>(key, value);
+          return new AbstractMap.SimpleImmutableEntry<K, V>((K)key, value);
         }
       }
     }
@@ -436,9 +441,9 @@ public class ImmutableHashMap<K, V> {
       if ((count_box[0] & 1) == 0) {
         key_box[0] = o;
       } else {
-        K key = (K)key_box[0];
+        Object key = key_box[0];
         if (_DELETED_KEY != key) {
-          action.accept(key, (V)o);
+          action.accept((K)key, (V)o);
         }
       }
       count_box[0]++;
