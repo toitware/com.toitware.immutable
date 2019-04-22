@@ -326,7 +326,7 @@ public class ImmutableHashMap<K, V> {
   private class KeyIterator<K> implements Iterator<K> {
     private int _index;
     private int _limit;
-    private ImmutableArrayIterator _backing_iterator;
+    private Iterator<Object> _backing_iterator;
 
     public KeyIterator(Keys<K> keys) {
       _index = 0;
@@ -363,7 +363,7 @@ public class ImmutableHashMap<K, V> {
   private class ValueIterator<V> implements Iterator<V> {
     private int _index;
     private int _limit;
-    private ImmutableArrayIterator _backing_iterator;
+    private Iterator<Object> _backing_iterator;
 
     public ValueIterator(Values<V> values) {
       _index = 0;

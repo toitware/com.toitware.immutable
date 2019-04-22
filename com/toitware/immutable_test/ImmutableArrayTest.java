@@ -4,7 +4,6 @@
 
 package com.toitware.immutable_test;
 import com.toitware.immutable.ImmutableArray;
-import com.toitware.immutable.ImmutableArrayIterator;
 import java.util.Arrays;
 
 class ImmutableArrayTest {
