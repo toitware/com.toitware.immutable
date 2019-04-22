@@ -34,9 +34,9 @@ public class ImmutableHashMap<K, V> {
   }
 
   public int size() { return _size; }
-  private int _size;
+  private final int _size;
   // Immutable alternating keys and values in insertion order.
-  private ImmutableArray<Object> _backing;
+  private final ImmutableArray<Object> _backing;
   // An array of atomic integers, where each slot is a combination of hash
   // code and index into the _backing array.  The first entry is reserved for
   // the number of slots that are in use.
@@ -123,7 +123,7 @@ public class ImmutableHashMap<K, V> {
     }
   }
 
-  ImmutableHashMap<K, V> delete(K key) {
+  public ImmutableHashMap<K, V> remove(K key) {
     if (_index == null) return this;  // Empty map.
     int hash = key.hashCode();
     int slot = hash & _indexMask();
@@ -168,7 +168,7 @@ public class ImmutableHashMap<K, V> {
     if (used + (used >> 2) >= _index.length() || _backing.size > used * 3 || _backing.size == _MAX_ENTRIES * 2) {
       // If there is not 1.25 times as much space as we need, rebuild with more space.
       // Also rebuild when the backing is clogged with deleted entries.
-      //if (used + (used >> 2) >= _index.length()) System.out.println("Used of " + used + " too much ofr index lenght of " + _index.length());
+      //if (used + (used >> 2) >= _index.length()) System.out.println("Used of " + used + " too much for index length of " + _index.length());
       //if (_backing.size > used * 3) System.out.println("_backing size of " + _backing.size + " too much for used of " + used);
       return _rebuild_index()._put(key, value, only_if_absent, only_if_present);
     }
@@ -176,7 +176,7 @@ public class ImmutableHashMap<K, V> {
     int slot = hash & _indexMask();
     int step = 1;
     while (true) {
-      //System.out.println("Probing slot " + slot + " indexMask " + _indexMask());
+      //System.out.println("Probing for key " + key + " slot " + slot + " indexMask " + _indexMask());
       if (_isFree(slot)) {
         if (only_if_present) return this;
         // Found free slot for new entry.
@@ -269,9 +269,11 @@ public class ImmutableHashMap<K, V> {
           key = (K)o;
           k = false;
         } else {
-          // This should never call _rebuild_index because the index is big
-          // enough and there is no contention.
-          new_map = new_map.put(key, (V)o);
+          if (_DELETED_KEY != key) {
+            // This should never call _rebuild_index because the index is big
+            // enough and there is no contention.
+            new_map = new_map.put(key, (V)o);
+          }
           k = true;
         }
       }
