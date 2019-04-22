@@ -7,6 +7,7 @@ package com.toitware.immutable;
 import java.util.AbstractCollection;
 import java.util.Arrays;
 import java.util.Collection;
+import java.util.function.Consumer;
 import java.util.Iterator;
 
 // An immutable array with O(log size) access to any element.  A new array that
@@ -384,6 +385,26 @@ public class ImmutableArray<E> extends AbstractCollection<E> implements Iterable
         _stack[idx + 1] = (Object[])_stack[idx][_positions[idx]];
       }
       _positions[_powers_posn] = -1;
+    }
+  }
+
+  public void forEach(Consumer<? super E> action) {
+    if (_powers == null) return;
+    for (int p = _powers.length - 1; p >= 0; p--) {
+      _forEachHelper((Object[])_powers[p], p, action);
+    }
+  }
+
+  private @SuppressWarnings("unchecked") void _forEachHelper(Object[] array, int depth, Consumer<? super E> action) {
+    if (array == null) return;
+    if (depth == 0) {
+      for (int i = 0; i < array.length; i++) {
+        action.accept((E)array[i]);
+      }
+    } else {
+      for (int i = 0; i < array.length; i++) {
+        _forEachHelper((Object[])array[i], depth - 1, action);
+      }
     }
   }
 }

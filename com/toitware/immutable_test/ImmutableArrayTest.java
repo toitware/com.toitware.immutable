@@ -57,6 +57,14 @@ class ImmutableArrayTest {
       assert(i * i == (Integer)as_array[i]);
       assert(i * i == typed_array[i]);
     }
+
+    int iBox[] = new int[1];
+    p.forEach((x)-> {
+      assert(x == iBox[0] * iBox[0]);
+      iBox[0]++;
+    });
+    assert(iBox[0] == 10);
+
     for (int i = 10; i < 100; i++) {
       p = p.push(i * i);
     }
@@ -72,6 +80,14 @@ class ImmutableArrayTest {
     for (int i = 0; i < 1000; i++) {
       assert(p.get(i) == i * i);
     }
+
+    iBox[0] = 0;
+    p.forEach((x)-> {
+      assert(x == iBox[0] * iBox[0]);
+      iBox[0]++;
+    });
+    assert(iBox[0] == 1000);
+
     assert(p.indexOf(196) == 14);
     ImmutableArray<Integer> p2 = p.atPut(42, 42);
     assert(p2.size() == p.size());
