@@ -253,7 +253,7 @@ public class ImmutableHashMap<K, V> {
   }
 
   public Collection<V> values() {
-    throw new UnsupportedOperationException();
+    return new Values<V>(this);
   }
 
   public boolean containsValue(V value) {
@@ -346,6 +346,43 @@ public class ImmutableHashMap<K, V> {
         if (_DELETED_KEY != key) {
           _index++;
           return key;
+        }
+      }
+    }
+  }
+
+  private class Values<V> extends AbstractCollection <V> {
+    private ImmutableHashMap<?, V> _map;
+    public Values(ImmutableHashMap<?, V> map) {
+      _map = map;
+    }
+    public int size() { return _map.size(); }
+    public Iterator<V> iterator() { return new ValueIterator<V>(this); }
+  }
+
+  private class ValueIterator<V> implements Iterator<V> {
+    private int _index;
+    private int _limit;
+    private ImmutableArrayIterator _backing_iterator;
+
+    public ValueIterator(Values<V> values) {
+      _index = 0;
+      _limit = values._map.size();
+      ImmutableArray<Object> backing = values._map._backing;
+      _backing_iterator = backing == null ? null : backing.iterator();
+    }
+
+    public boolean hasNext() {
+      return _index < _limit;
+    }
+
+    public @SuppressWarnings("unchecked") V next() {
+      while (true) {
+        Object key = _backing_iterator.next();
+        V value = (V)_backing_iterator.next();
+        if (_DELETED_KEY != key) {
+          _index++;
+          return value;
         }
       }
     }
