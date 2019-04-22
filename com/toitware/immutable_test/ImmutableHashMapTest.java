@@ -172,10 +172,11 @@ class ImmutableHashMapTest {
     }
     assert(count == 1);
 
-    ImmutableHashMap<String, Object> ten = empty;
+    ImmutableHashMap<String, Object> ten_build = empty;
     for (int i = 0; i < 10; i++) {
-      ten = ten.put("" + i, "value" + i);
+      ten_build = ten_build.put("" + i, "value" + i);
     }
+    ImmutableHashMap<String, Object> ten = ten_build;
     assert(ten.size() == 10);
     int i = '0';
     for (String k : ten.keySet()) {
@@ -243,5 +244,33 @@ class ImmutableHashMapTest {
       assert(v.charAt(5) == i++);
     }
     assert(i == '0' + 10);
+
+    int iBox[] = new int[1];
+    iBox[0] = '0';
+    ten.forEach((k, o)-> {
+      String v = (String)o;
+      assert(k.length() == 1);
+      assert(k.charAt(0) == iBox[0]);
+      assert(ten.get(k).equals("value" + k));
+      assert(ten.get(k).equals(v));
+      assert(v.length() == 6);
+      assert(v.equals("value" + (iBox[0] - '0')));
+      assert(v.charAt(5) == iBox[0]++);
+    });
+    assert(iBox[0] == '0' + 10);
+
+    iBox[0] = '0';
+    removed.forEach((k, o)-> {
+      String v = (String)o;
+      assert(k.length() == 1);
+      if (iBox[0] == '4') iBox[0]++;
+      assert(k.charAt(0) == iBox[0]);
+      assert(removed.get(k).equals("value" + k));
+      assert(removed.get(k).equals(v));
+      assert(v.length() == 6);
+      assert(v.equals("value" + (iBox[0] - '0')));
+      assert(v.charAt(5) == iBox[0]++);
+    });
+    assert(iBox[0] == '0' + 10);
   }
 }

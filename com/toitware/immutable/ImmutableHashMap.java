@@ -8,6 +8,7 @@ import java.util.AbstractCollection;
 import java.util.AbstractMap;
 import java.util.Collection;
 import java.util.concurrent.atomic.AtomicIntegerArray;
+import java.util.function.BiConsumer;
 import java.util.Iterator;
 import java.util.Map;
 import java.util.Set;
@@ -425,6 +426,21 @@ public class ImmutableHashMap<K, V> {
           return new AbstractMap.SimpleImmutableEntry<K, V>(key, value);
         }
       }
+    }
+  }
+
+  public @SuppressWarnings("unchecked") void forEach(BiConsumer<? super K, ? super V> action) {
+    long count = 0;
+    K key = null;
+    for (Object o : _backing) {
+      if ((count & 1) == 0) {
+        key = (K)o;
+      } else {
+        if (_DELETED_KEY != key) {
+          action.accept(key, (V)o);
+        }
+      }
+      count++;
     }
   }
 }
