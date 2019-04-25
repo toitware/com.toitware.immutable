@@ -5,11 +5,29 @@
 package com.toitware.immutable_test;
 import com.toitware.immutable.ImmutableArray;
 import java.util.Arrays;
+import java.util.Random;
 
 class ImmutableArrayTest {
   public static void main(String args[]) {
     simple_test();
+    random_test();
     push_all_test();
+  }
+
+  private static void random_test() {
+    final int ITERATIONS = 1000;
+    Random random = new Random(1034210342);
+    for (int z = 0; z < ITERATIONS; z++) {
+      int len = random.nextInt(100);
+      ImmutableArray<Integer> a = new ImmutableArray<Integer>();
+      for (int i = 0; i < len; i++) {
+        a = a.push(random.nextInt(120));
+      }
+      ImmutableArray<Integer> trimmed = a.trim(random.nextInt((int)(a.size + 1)));
+      for (int i = 0; i < trimmed.size; i++) {
+        assert(trimmed.get(i) == a.get(i));
+      }
+    }
   }
 
   private static void simple_test() {
@@ -56,6 +74,14 @@ class ImmutableArrayTest {
       assert(p.get(i) == i * i);
       assert(i * i == (Integer)as_array[i]);
       assert(i * i == typed_array[i]);
+    }
+
+    for (int i = 0; i <= 10; i++) {
+      ImmutableArray trimmed = p.trim(i);
+      assert(trimmed.size == p.size - i);
+      for (int j = 0; j < trimmed.size; j++) {
+        assert(trimmed.get(j) == p.get(j));
+      }
     }
 
     int iBox[] = new int[1];

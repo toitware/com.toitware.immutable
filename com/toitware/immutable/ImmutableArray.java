@@ -306,6 +306,58 @@ public class ImmutableArray<E> extends AbstractCollection<E> implements Iterable
     return new_powers;
   }
 
+  public ImmutableArray<E> trim() {
+    return trim(1);
+  }
+
+  public ImmutableArray<E> trim(long by) {
+    if (by < 0 || by > size) throw new IndexOutOfBoundsException();
+    if (by == 0) return this;
+    if (by == size) return new ImmutableArray<E>();
+    long new_size = size - by;
+    int d = _powers.length;
+    Object new_powers[] = null;
+    Object[] borrow = null;
+    // One digit at a time, from most significant to least significant.
+    for (int i = d - 1; i >= 0; i--) {
+      int old_digit = (int)((size >> (i * 3)) & 7);
+      int new_digit = (int)((new_size >> (i * 3)) & 7);
+      Object there[] = (Object[])_powers[i];
+      int borrow_len = borrow == null ? 0 : borrow.length;
+      Object here[];
+      if (borrow_len == 0 && new_digit == old_digit) {
+        here = there;
+      } else {
+        here = new_digit == 0 ? null : new Object[new_digit];
+        int j = 0;
+        while (j < new_digit && j < borrow_len) {
+          here[j] = borrow[j];
+          j++;
+        }
+        int k = 0;
+        while (j < new_digit) {
+          here[j++] = there[k++];
+        }
+        if (i > 0) {
+          if (j < borrow_len) {
+            borrow = (Object[])borrow[j];
+          } else if (j - borrow_len < (there == null ? 0 : there.length)) {
+            borrow = (Object[])there[j - borrow_len];
+          } else {
+            borrow = null;
+          }
+        }
+      }
+      if (here != null) {
+        if (new_powers == null) {
+          new_powers = new Object[i + 1];
+        }
+        new_powers[i] = here;
+      }
+    }
+    return new ImmutableArray<E>(new_size, new_powers);
+  }
+
   static private boolean _isPowerOf8(long i) {
     // Quick check for power of 2.
     if ((i & (i - 1)) != 0) return false;
