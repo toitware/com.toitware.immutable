@@ -322,30 +322,23 @@ public class ImmutableArray<E> extends AbstractCollection<E> implements Iterable
     for (int i = d - 1; i >= 0; i--) {
       int old_digit = (int)((size >> (i * 3)) & 7);
       int new_digit = (int)((new_size >> (i * 3)) & 7);
-      Object there[] = (Object[])_powers[i];
+      Object input[] = (Object[])_powers[i];
       int borrow_len = borrow == null ? 0 : borrow.length;
+      int input_len = borrow_len + (input == null ? 0 : input.length);
       Object here[];
       if (borrow_len == 0 && new_digit == old_digit) {
-        here = there;
+        here = input;
       } else {
         here = new_digit == 0 ? null : new Object[new_digit];
-        int j = 0;
-        while (j < new_digit && j < borrow_len) {
-          here[j] = borrow[j];
-          j++;
-        }
-        int k = 0;
-        while (j < new_digit) {
-          here[j++] = there[k++];
-        }
-        if (i > 0) {
-          if (j < borrow_len) {
-            borrow = (Object[])borrow[j];
-          } else if (j - borrow_len < (there == null ? 0 : there.length)) {
-            borrow = (Object[])there[j - borrow_len];
-          } else {
-            borrow = null;
+        for (int j = 0; true; j++) {
+          Object obj = j < borrow_len ? borrow[j] :
+                       j < input_len ? input[j - borrow_len] :
+                       null;
+          if (j == new_digit) {
+            if (i != 0) borrow = (Object[])obj;
+            break;
           }
+          here[j] = obj;
         }
       }
       if (here != null) {
