@@ -16,6 +16,7 @@ class ImmutableArrayTest {
     random_test();
     random_test2();
     push_all_test();
+    leak_deque_test();
   }
 
   private static void random_test() {
@@ -35,7 +36,7 @@ class ImmutableArrayTest {
   }
 
   private static void random_test2() {
-    final int ITERATIONS = 10000;
+    final int ITERATIONS = 1000;
     final int ARRAYS = 20;
     ArrayList<ArrayList<Integer>> control = new ArrayList<ArrayList<Integer>>();
     ImmutableArray<ImmutableCollection<Integer>> arrays = new ImmutableArray<>();
@@ -82,12 +83,12 @@ class ImmutableArrayTest {
         }
         case 2: {
           // Remove from start.
-          //System.out.println("Trim " + amount + " from " + src + " and store to " + dest);
           control.set(dest, new ArrayList<Integer>(control.get(src)));
           int i = 0;
           for ( ; i < amount && control.get(dest).size() != 0; i++) {
             control.get(dest).remove(0);
           }
+          //System.out.println("Trim " + i + " from " + src + " and store to " + dest);
           arrays = arrays.atPut(dest, arrays.get(src).subList(i));
           break;
         }
@@ -147,6 +148,29 @@ class ImmutableArrayTest {
         assert(control.get(i).indexOf(needle) == arrays.get(i).indexOf(needle));
         assert(control.get(i).lastIndexOf(needle) == arrays.get(i).lastIndexOf(needle));
       }
+    }
+  }
+
+  // A deque is implemented as a view on an array, but we need to ensure that
+  // the elements to the left of the view do not retain garbage.  This is done
+  // by the trimLeft method of Immutable Array, which nulls out that part of
+  // the tree.
+  private static void leak_deque_test() {
+    final int ITERATIONS = 1000;
+    ImmutableArray<Object> accumulate = new ImmutableArray<>();
+    Random random = new Random(1034210342);
+    for (int z = 0; z < ITERATIONS; z++) {
+      int size = random.nextInt(1000) + 2;
+      int cut = random.nextInt(size - 1);
+      ImmutableArray<Object[]> backing = new ImmutableArray<>();
+      int i = 0;
+      for ( ; i < cut; i++) {
+        backing = backing.push(new Object[10000]);
+      }
+      for ( ; i < size; i++) {
+        backing = backing.push(null);
+      }
+      accumulate = accumulate.push(backing.subList(cut));
     }
   }
 

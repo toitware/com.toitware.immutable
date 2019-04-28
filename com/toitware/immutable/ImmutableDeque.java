@@ -16,8 +16,9 @@ public class ImmutableDeque<E> extends ImmutableCollection<E> {
 
   protected ImmutableDeque(long offset, ImmutableArray<E> backing) {
     if (offset < 0 || (offset != 0 && offset >= backing.size)) throw new IndexOutOfBoundsException();
-    _offset = offset;
-    _backing = backing;
+    long old_backing_size = backing.size;
+    _backing = offset == 0 ? backing : backing.trimLeft(offset);
+    _offset = offset + _backing.size - old_backing_size;
   }
 
   public int size() {
@@ -28,10 +29,6 @@ public class ImmutableDeque<E> extends ImmutableCollection<E> {
 
   public long longSize() {
     return _backing.size - _offset;
-  }
-
-  public String toString() {
-    return "ImmutableDeque " + _offset + " " + _backing;
   }
 
   public E get(int index) {

@@ -114,6 +114,21 @@ public class ImmutableArray<E> extends ImmutableCollection<E> {
     return new_array;
   }
 
+  // Makes a copy of an array, but at the given index the value is substituted,
+  // and to the left of that position, everything is nulled.
+  static private Object[] _nullToTheLeft(Object old[], long index, Object value) {
+    Object[] new_array = old == null ? new Object[1] : new Object[old.length];
+    for (int i = 0; i < new_array.length; i++) {
+      new_array[i] =
+          (i < index) ?
+          null :
+          (i == index) ?
+              value :
+              old[i];
+    }
+    return new_array;
+  }
+
   // Returns the first index whose element is equal to the needle, using
   // equals().  Returns -1 if the needle is not found.
   // Unlike the method of the same name on ArrayList, this one returns long.
@@ -206,6 +221,42 @@ public class ImmutableArray<E> extends ImmutableCollection<E> {
         tribbles == 0 ?
             value :
             _atPut(tribbles - 1, value, index - (idx << (tribbles * 3)), (Object[])array[(int)idx]));
+  }
+
+  // Null out all entries to the left of the given index. This is used by
+  // Immutable Deque to ensure that items to the left of the offset are not
+  // retained for GC purposes.
+  // Time taken is O(log size).
+  protected ImmutableArray<E> trimLeft(long index) {
+    long len = size;
+    if (index < 0 || index >= len) throw new IndexOutOfBoundsException();
+    int length_tribbles = _powers.length - 1;
+    while (true) {
+      long top_index_digit = index >>> (3 * length_tribbles);
+      long top_length_digit = len >>> (3 * length_tribbles);
+      if (top_index_digit < top_length_digit) {
+        Object new_powers[] = new Object[length_tribbles + 1];
+        for (int i = 0; i < length_tribbles; i++) new_powers[i] = _powers[i];
+        new_powers[length_tribbles] = _trimLeft(
+            length_tribbles,
+            index,
+            (Object[])_powers[length_tribbles]);
+        return new ImmutableArray<E>(len, new_powers);
+      }
+      index -= top_index_digit << (3 * length_tribbles);
+      len -= top_index_digit << (3 * length_tribbles);
+      length_tribbles--;
+    }
+  }
+
+  private Object[] _trimLeft(int tribbles, long index, Object array[]) {
+    long idx = index >>> (tribbles * 3);
+    return _nullToTheLeft(
+        array,
+        idx,
+        tribbles == 0 ?
+            array[(int)idx] :
+            _trimLeft(tribbles - 1, index - (idx << (tribbles * 3)), (Object[])array[(int)idx]));
   }
 
   // Unlike add() on ArrayList, this returns a new immutable collection that differs
@@ -429,11 +480,15 @@ public class ImmutableArray<E> extends ImmutableCollection<E> {
 
     private void _init(long starting) {
       if (_powers != null) {
-        for (_powers_posn = _powers.length - 1; _powers_posn >= 0; _powers_posn--) {
-          if (_powers[_powers_posn] == null) continue;
-          long at_this_level = ((Object[])(_powers[_powers_posn])).length << (3 * _powers_posn);
-          if (starting < at_this_level) break;
-          starting -= at_this_level;
+        if (starting == 0) {
+          _powers_posn = _powers.length - 1;
+        } else {
+          for (_powers_posn = _powers.length - 1; _powers_posn >= 0; _powers_posn--) {
+            if (_powers[_powers_posn] == null) continue;
+            long at_this_level = ((Object[])(_powers[_powers_posn])).length << (3 * _powers_posn);
+            if (starting < at_this_level) break;
+            starting -= at_this_level;
+          }
         }
         _stack = new Object[_powers.length][];
         _positions = new int[_powers.length];
@@ -483,16 +538,16 @@ public class ImmutableArray<E> extends ImmutableCollection<E> {
       return next();
     }
 
-    private void _populate_stack(long from) {
+    private void _populate_stack(long starting) {
       _stack[0] = (Object[])_powers[_powers_posn];
       int shift = _powers_posn * 3;
       for (int idx = 0; idx < _powers_posn; idx++) {
-        int progress = (int)((from >> shift) & 7);
+        int progress = (int)((starting >> shift) & 7);
         shift -= 3;
         _positions[idx] = progress;
         _stack[idx + 1] = (Object[])_stack[idx][_positions[idx]];
       }
-      _positions[_powers_posn] = (int)((from & 7) - 1);
+      _positions[_powers_posn] = (int)((starting & 7) - 1);
     }
   }
 
@@ -500,7 +555,7 @@ public class ImmutableArray<E> extends ImmutableCollection<E> {
     forEach(0, action);
   }
 
-  public void forEach(long startAt, Consumer<? super E> action) {
+  protected void forEach(long startAt, Consumer<? super E> action) {
     if (startAt < 0 || startAt > size) throw new IndexOutOfBoundsException();
     if (_powers == null) return;
     long index = 0;
@@ -523,8 +578,11 @@ public class ImmutableArray<E> extends ImmutableCollection<E> {
       }
     } else {
       for (int i = 0; i < array.length; i++) {
-        _forEachHelper((Object[])array[i], depth - 1, startAt, index, action);
-        index += 1 << (3 * depth);
+        long index_after = index + (1 << (3 * depth));
+        if (startAt < index_after) {
+          _forEachHelper((Object[])array[i], depth - 1, startAt, index, action);
+        }
+        index = index_after;
       }
     }
   }
