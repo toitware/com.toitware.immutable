@@ -4,6 +4,7 @@
 
 package com.toitware.immutable;
 
+import com.toitware.immutable.ImmutableCollection;
 import java.util.AbstractCollection;
 import java.util.Arrays;
 import java.util.Collection;
@@ -17,8 +18,9 @@ import java.util.Iterator;
 // log of the size, rounded up.  This means that a new array, one longer than
 // the current one can be made in O(1) time using the push() method.  (This is
 // almost true - the push() method is currently O(log size), but you would have
-// to have a 128 bit implementation of the Java Language to notice You don't.)
-public class ImmutableArray<E> extends AbstractCollection<E> implements Iterable<E> {
+// to have a 128 bit implementation of the Java Language to notice.  You
+// don't.)
+public class ImmutableArray<E> extends ImmutableCollection<E> {
   // Unlike the size() method this is not limited to the range of an int.
   public final long size;
 
@@ -53,14 +55,22 @@ public class ImmutableArray<E> extends AbstractCollection<E> implements Iterable
   }
 
   // To conform to the AbstractCollection interface this returns an int, but
-  // see also the property 'size'.
+  // see also the property 'size' and the method longSize().
   public int size() {
     if (size > Integer.MAX_VALUE) return Integer.MAX_VALUE;
     return (int)size;
   }
 
+  public long longSize() {
+    return size;
+  }
+
   public ImmutableArrayIterator<E> iterator() {
     return new ImmutableArrayIterator<E>(size, _powers);
+  }
+
+  public ImmutableArrayIterator<E> iterator(long startAt) {
+    return new ImmutableArrayIterator<E>(size, _powers, startAt);
   }
 
   private ImmutableArray(long len, Object[] pow) {
@@ -110,20 +120,38 @@ public class ImmutableArray<E> extends AbstractCollection<E> implements Iterable
   public long indexOf(Object needle) {
     long index = 0;
     for (Object obj : this) {
-      if (needle == null || needle.equals(obj)) return index;
+      if ((needle == null && obj == null)|| needle.equals(obj)) return index;
       index++;
     }
     return -1;
   }
 
+  // TODO: Has complexity O(n log n), fix to be O(n).
+  protected long indexOf(Object needle, long starting) {
+    if (starting > size) throw new IndexOutOfBoundsException();
+    for (long index = starting; index < size; index++) {
+      Object obj = get(index);
+      if ((needle == null && obj == null) || needle.equals(obj)) return index;
+    }
+    return -1;
+  }
+
   // Returns the last index whose element is equal to the needle, using
-  // equals().  Unlike the method of the same name on ArrayList, this one
-  // returns long.  Returns -1 if the needle is not found.
-  // TODO: Currently takes O(nlogn).
+  // equals().  Returns -1 if the needle is not found.
+  // TODO: Has complexity O(n log n), fix to be O(n).
   public long lastIndexOf(Object needle) {
     for (long index = size - 1; index >= 0; index--) {
       Object obj = get(index);
-      if (needle == null || needle.equals(obj)) return index;
+      if ((needle == null && obj == null) || needle.equals(obj)) return index;
+    }
+    return -1;
+  }
+
+  protected long lastIndexOf(Object needle, long stopAt) {
+    if (stopAt < 0) throw new IndexOutOfBoundsException();
+    for (long index = size - 1; index >= stopAt; index--) {
+      Object obj = get(index);
+      if ((needle == null && obj == null) || needle.equals(obj)) return index;
     }
     return -1;
   }
@@ -306,6 +334,23 @@ public class ImmutableArray<E> extends AbstractCollection<E> implements Iterable
     return new_powers;
   }
 
+  public ImmutableCollection<E> shift() {
+    return subList(1);
+  }
+
+  public @SuppressWarnings("unchecked") ImmutableCollection<E> subList(long from) {
+    if (from == 0) return this;
+    if (from == size) return new ImmutableDeque<E>(0, new ImmutableArray());
+    return new ImmutableDeque<E>(from, this);
+  }
+
+  public @SuppressWarnings("unchecked") ImmutableCollection<E> subList(long from, long to) {
+    if (from == 0) return trim(size - to);
+    if (from == size) return new ImmutableDeque<E>(0, new ImmutableArray());
+    if (to == size) return new ImmutableDeque<E>(from, this);
+    return new ImmutableDeque<E>(from, trim(size - to));
+  }
+
   public ImmutableArray<E> trim() {
     return trim(1);
   }
@@ -363,7 +408,7 @@ public class ImmutableArray<E> extends AbstractCollection<E> implements Iterable
     return false;
   }
 
-  public class ImmutableArrayIterator<E> implements Iterator<E> {
+  protected class ImmutableArrayIterator<E> implements Iterator<E> {
     private long _remaining;
     private Object _stack[][];
     private int _positions[];
@@ -373,11 +418,26 @@ public class ImmutableArray<E> extends AbstractCollection<E> implements Iterable
     public ImmutableArrayIterator(long length, Object[] powers) {
       _powers = powers;
       _remaining = length;
-      if (powers != null) {
-        _powers_posn = powers.length - 1;
-        _stack = new Object[powers.length][];
-        _positions = new int[powers.length];
-        _populate_stack();
+      _init(0);
+    }
+
+    public ImmutableArrayIterator(long length, Object[] powers, long starting) {
+      _powers = powers;
+      _remaining = length - starting;
+      _init(starting);
+    }
+
+    private void _init(long starting) {
+      if (_powers != null) {
+        for (_powers_posn = _powers.length - 1; _powers_posn >= 0; _powers_posn--) {
+          if (_powers[_powers_posn] == null) continue;
+          long at_this_level = ((Object[])(_powers[_powers_posn])).length << (3 * _powers_posn);
+          if (starting < at_this_level) break;
+          starting -= at_this_level;
+        }
+        _stack = new Object[_powers.length][];
+        _positions = new int[_powers.length];
+        _populate_stack(starting);
       }
     }
 
@@ -419,36 +479,52 @@ public class ImmutableArray<E> extends AbstractCollection<E> implements Iterable
       do {
         _powers_posn--;
       } while (_powers[_powers_posn] == null);
-      _populate_stack();
+      _populate_stack(0);
       return next();
     }
 
-    private void _populate_stack() {
+    private void _populate_stack(long from) {
       _stack[0] = (Object[])_powers[_powers_posn];
+      int shift = _powers_posn * 3;
       for (int idx = 0; idx < _powers_posn; idx++) {
-        _positions[idx] = 0;
+        int progress = (int)((from >> shift) & 7);
+        shift -= 3;
+        _positions[idx] = progress;
         _stack[idx + 1] = (Object[])_stack[idx][_positions[idx]];
       }
-      _positions[_powers_posn] = -1;
+      _positions[_powers_posn] = (int)((from & 7) - 1);
     }
   }
 
   public void forEach(Consumer<? super E> action) {
+    forEach(0, action);
+  }
+
+  public void forEach(long startAt, Consumer<? super E> action) {
+    if (startAt < 0 || startAt > size) throw new IndexOutOfBoundsException();
     if (_powers == null) return;
+    long index = 0;
     for (int p = _powers.length - 1; p >= 0; p--) {
-      _forEachHelper((Object[])_powers[p], p, action);
+      if (_powers[p] != null) {
+        Object[] power = (Object[])_powers[p];
+        _forEachHelper(power, p, startAt, index, action);
+        index += power.length << (3 * p);
+      }
     }
   }
 
-  private @SuppressWarnings("unchecked") void _forEachHelper(Object[] array, int depth, Consumer<? super E> action) {
-    if (array == null) return;
+  private @SuppressWarnings("unchecked") void _forEachHelper(Object[] array, int depth, long startAt, long index, Consumer<? super E> action) {
+    long end = index + array.length << (3 * depth);
+    if (end < startAt) return;
     if (depth == 0) {
-      for (int i = 0; i < array.length; i++) {
+      int start = startAt <= index ? 0 : (int)(startAt & 7);
+      for (int i = start; i < array.length; i++) {
         action.accept((E)array[i]);
       }
     } else {
       for (int i = 0; i < array.length; i++) {
-        _forEachHelper((Object[])array[i], depth - 1, action);
+        _forEachHelper((Object[])array[i], depth - 1, startAt, index, action);
+        index += 1 << (3 * depth);
       }
     }
   }

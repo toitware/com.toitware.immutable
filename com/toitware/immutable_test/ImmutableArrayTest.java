@@ -4,6 +4,9 @@
 
 package com.toitware.immutable_test;
 import com.toitware.immutable.ImmutableArray;
+import com.toitware.immutable.ImmutableCollection;
+import com.toitware.immutable.ImmutableDeque;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Random;
 
@@ -11,6 +14,7 @@ class ImmutableArrayTest {
   public static void main(String args[]) {
     simple_test();
     random_test();
+    random_test2();
     push_all_test();
   }
 
@@ -19,29 +23,145 @@ class ImmutableArrayTest {
     Random random = new Random(1034210342);
     for (int z = 0; z < ITERATIONS; z++) {
       int len = random.nextInt(100);
-      ImmutableArray<Integer> a = new ImmutableArray<Integer>();
+      ImmutableCollection<Integer> a = new ImmutableArray<Integer>();
       for (int i = 0; i < len; i++) {
         a = a.push(random.nextInt(120));
       }
-      ImmutableArray<Integer> trimmed = a.trim(random.nextInt((int)(a.size + 1)));
-      for (int i = 0; i < trimmed.size; i++) {
+      ImmutableCollection<Integer> trimmed = a.trim(random.nextInt((int)(a.longSize() + 1)));
+      for (int i = 0; i < trimmed.longSize(); i++) {
         assert(trimmed.get(i) == a.get(i));
       }
     }
   }
 
+  private static void random_test2() {
+    final int ITERATIONS = 10000;
+    final int ARRAYS = 20;
+    ArrayList<ArrayList<Integer>> control = new ArrayList<ArrayList<Integer>>();
+    ImmutableArray<ImmutableCollection<Integer>> arrays = new ImmutableArray<>();
+    for (int i = 0; i < ARRAYS; i++) {
+      control.add(new ArrayList<Integer>());
+      arrays = arrays.push(new ImmutableArray<Integer>());
+    }
+
+    Random random = new Random(1034210342);
+    for (int z = 0; z < ITERATIONS; z++) {
+      int src = random.nextInt(ARRAYS);
+      int dest = random.nextInt(ARRAYS);
+      int amount = random.nextInt(4) + 1;
+      switch (random.nextInt(6)) {
+        case 0: {
+          // Push.
+          //System.out.println("Push " + amount + " on " + src + " and store to " + dest);
+          arrays = arrays.atPut(dest, arrays.get(src));
+          control.set(dest, new ArrayList<Integer>(control.get(src)));
+          for (int i = 0; i < amount; i++) {
+            int value1 = random.nextInt(100);
+            int value2 = random.nextInt(100);
+            if (random.nextBoolean()) {
+              arrays = arrays.atPut(dest, arrays.get(dest).push(value1, value2));
+            } else {
+              arrays = arrays.atPut(dest, arrays.get(dest).push(value1));
+              arrays = arrays.atPut(dest, arrays.get(dest).push(value2));
+            }
+            control.get(dest).add(value1);
+            control.get(dest).add(value2);
+          }
+          break;
+        }
+        case 1: {
+          // Pop.
+          //System.out.println("Pop " + amount + " from " + src + " and store to " + dest);
+          control.set(dest, new ArrayList<Integer>(control.get(src)));
+          int i = 0;
+          for ( ; i < amount && control.get(dest).size() != 0; i++) {
+            control.get(dest).remove(control.get(dest).size() - 1);
+          }
+          arrays = arrays.atPut(dest, arrays.get(src).trim(i));
+          break;
+        }
+        case 2: {
+          // Remove from start.
+          //System.out.println("Trim " + amount + " from " + src + " and store to " + dest);
+          control.set(dest, new ArrayList<Integer>(control.get(src)));
+          int i = 0;
+          for ( ; i < amount && control.get(dest).size() != 0; i++) {
+            control.get(dest).remove(0);
+          }
+          arrays = arrays.atPut(dest, arrays.get(src).subList(i));
+          break;
+        }
+        case 3: {
+          if (control.get(dest).size() > 897) {
+            //System.out.println("Truncate " + dest);
+            control.set(dest, new ArrayList<Integer>());
+            arrays = arrays.atPut(dest, new ImmutableArray<Integer>());
+          } else {
+            // Concat.
+            //System.out.println("Concat " + src + " onto " + dest);
+            control.get(dest).addAll(control.get(src));
+            if (random.nextBoolean()) {
+              arrays = arrays.atPut(dest, arrays.get(dest).pushAll(arrays.get(src)));
+            } else {
+              ImmutableCollection<Integer> source = arrays.get(src);
+              Integer as_array[] = new Integer[source.size()];
+              source.toArray(as_array);
+              arrays = arrays.atPut(dest, arrays.get(dest).pushAll(as_array));
+            }
+            break;
+          }
+        }
+        case 4: {
+          int len = control.get(src).size();
+          if (len != 0) {
+            int offset = random.nextInt(len);
+            int value = random.nextInt(100);
+            //System.out.println("Len " + len + ", Set " + offset + " to " + value + " from " + src + " to " + dest);
+            arrays = arrays.atPut(dest, arrays.get(src).atPut(offset, value));
+            control.set(dest, new ArrayList<Integer>(control.get(src)));
+            control.get(dest).set(offset, value);
+          }
+          break;
+        }
+        case 5: {
+          int len = control.get(src).size();
+          if (len > 4) {
+            int fromStart = random.nextInt(len >> 2);
+            int fromEnd = random.nextInt(len >> 2);
+            //System.out.println("Cut chunk from " + fromStart + " to " + (len - fromEnd) + " of " + src + " putting result in " + dest);
+            control.set(dest, new ArrayList<Integer>(control.get(src).subList(fromStart, len - fromEnd)));
+            arrays = arrays.atPut(dest, arrays.get(src).subList(fromStart, len - fromEnd));
+          }
+        }
+      }
+      for (int i = 0; i < ARRAYS; i++) {
+        assert(control.get(i).size() == arrays.get(i).size());
+        for (int j = 0; j < control.get(i).size(); j++) {
+          assert(control.get(i).get(j).equals(arrays.get(i).get(j)));
+        }
+        int j = 0;
+        for (int element : arrays.get(i)) {
+          assert(control.get(i).get(j++).equals(element));
+        }
+        int needle = random.nextInt(100);
+        assert(control.get(i).indexOf(needle) == arrays.get(i).indexOf(needle));
+        assert(control.get(i).lastIndexOf(needle) == arrays.get(i).lastIndexOf(needle));
+      }
+    }
+  }
+
   private static void simple_test() {
-    ImmutableArray<Integer> empty = new ImmutableArray<>();
+    ImmutableCollection<Integer> empty = new ImmutableArray<>();
     assert(empty.size() == 0);
     assert(empty.isEmpty());
     for (int i : empty) {
       assert(false);
     }
-    ImmutableArray<Integer> ft = empty.push(42);
+    ImmutableCollection<Integer> ft = empty.push(42);
     assert(!empty.contains(42));
     assert(empty.indexOf(42) == -1);
     assert(ft.size() == 1);
-    assert(ft.size == 1);
+    assert(ft.longSize() == 1);
     assert(!ft.isEmpty());
     assert(ft.get(0) == 42);
     assert(ft.contains(42));
@@ -50,23 +170,23 @@ class ImmutableArrayTest {
       assert(i == 42);
     }
     assert(empty.size() == 0);
-    assert(empty.size == 0);
-    ImmutableArray<Integer> two_a = ft.push(103);
-    ImmutableArray<Integer> two_b = ft.push(7);
+    assert(empty.longSize() == 0);
+    ImmutableCollection<Integer> two_a = ft.push(103);
+    ImmutableCollection<Integer> two_b = ft.push(7);
     assert(two_a.size() == 2);
-    assert(two_a.size == 2);
+    assert(two_a.longSize() == 2);
     assert(two_b.size() == 2);
-    assert(two_b.size == 2);
+    assert(two_b.longSize() == 2);
     assert(two_a.get(0) == 42);
     assert(two_b.get(0) == 42);
     assert(two_a.get(1) == 103);
     assert(two_b.get(1) == 7);
-    ImmutableArray<Integer> p = new ImmutableArray<>();
+    ImmutableCollection<Integer> p = new ImmutableArray<>();
     for (int i = 0; i < 10; i++) {
       p = p.push(i * i);
     }
     assert(p.size() == 10);
-    assert(p.size == 10);
+    assert(p.longSize() == 10);
     Object[] as_array = p.toArray();
     Integer[] typed_array = new Integer[11];
     p.toArray(typed_array);
@@ -77,9 +197,9 @@ class ImmutableArrayTest {
     }
 
     for (int i = 0; i <= 10; i++) {
-      ImmutableArray trimmed = p.trim(i);
-      assert(trimmed.size == p.size - i);
-      for (int j = 0; j < trimmed.size; j++) {
+      ImmutableCollection trimmed = p.trim(i);
+      assert(trimmed.longSize() == p.longSize() - i);
+      for (int j = 0; j < trimmed.longSize(); j++) {
         assert(trimmed.get(j) == p.get(j));
       }
     }
@@ -114,11 +234,19 @@ class ImmutableArrayTest {
     });
     assert(iBox[0] == 1000);
 
+    ImmutableCollection<Integer> d = p.subList(123);
+    iBox[0] = 123;
+    d.forEach((x)-> {
+      assert(x == iBox[0] * iBox[0]);
+      iBox[0]++;
+    });
+    assert(iBox[0] == 1000);
+
     assert(p.indexOf(196) == 14);
-    ImmutableArray<Integer> p2 = p.atPut(42, 42);
+    ImmutableCollection<Integer> p2 = p.atPut(42, 42);
     assert(p2.size() == p.size());
     assert(p2.get(42) == 42);
-    ImmutableArray<Integer> p3 = p;
+    ImmutableCollection<Integer> p3 = p;
     for (int i = 0; i < 1000; i++) {
       assert(p2.get(i) == (i == 42 ? 42 : i * i));
       assert(p.get(i) == i * i);
@@ -136,7 +264,7 @@ class ImmutableArrayTest {
       p = p.push(i * i);
     }
     assert(p.size() == 100000);
-    assert(p.size == 100000);
+    assert(p.longSize() == 100000);
     for (int i = 0; i < 100000; i++) {
       assert(p.get(i) == i * i);
     }
@@ -148,8 +276,8 @@ class ImmutableArrayTest {
     }
   }
 
-  private static ImmutableArray<Integer> factory(int n) {
-    ImmutableArray<Integer> a = new ImmutableArray<>();
+  private static ImmutableCollection<Integer> factory(int n) {
+    ImmutableCollection<Integer> a = new ImmutableArray<>();
     for (int i = 0; i < n; i++) a = a.push(i * i);
     return a;
   }
@@ -175,26 +303,26 @@ class ImmutableArrayTest {
     }
   }
 
-  private static void push_all_pair(ImmutableArray<Integer> a1, ImmutableArray<Integer> a2, boolean a1_via_array, boolean a2_via_array) {
-    ImmutableArray<Integer> both;
+  private static void push_all_pair(ImmutableCollection<Integer> a1, ImmutableCollection<Integer> a2, boolean a1_via_array, boolean a2_via_array) {
+    ImmutableCollection<Integer> both;
     if (!a1_via_array && !a2_via_array) {
       both = a1.pushAll(a2);
     } else if (a1_via_array && !a2_via_array) {
-      Integer array1[] = new Integer[(int)a1.size];
+      Integer array1[] = new Integer[(int)a1.longSize()];
       a1.toArray(array1);
       both = new ImmutableArray<>(Arrays.asList(array1)).pushAll(a2);
     } else if (!a1_via_array && a2_via_array) {
-      Integer array2[] = new Integer[(int)a2.size];
+      Integer array2[] = new Integer[(int)a2.longSize()];
       a2.toArray(array2);
       both = a1.pushAll(Arrays.asList(array2));
     } else {
-      Integer array1[] = new Integer[(int)a1.size];
+      Integer array1[] = new Integer[(int)a1.longSize()];
       a1.toArray(array1);
-      Integer array2[] = new Integer[(int)a2.size];
+      Integer array2[] = new Integer[(int)a2.longSize()];
       a2.toArray(array2);
       both = new ImmutableArray<>(array1).pushAll(array2);
     }
-    assert(both.size == a1.size + a2.size);
+    assert(both.longSize() == a1.longSize() + a2.longSize());
     long idx = 0;
     for (Integer i : a1) {
       assert(both.get(idx++) == i);
