@@ -3,7 +3,8 @@
 # found in the LICENSE file.
 
 all:
-	CLASSPATH=/Users/erik/immutable javac -Xlint:unchecked com/toitware/immutable_test/ImmutableArrayTest.java
-	CLASSPATH=/Users/erik/immutable java -ea com.toitware.immutable_test.ImmutableArrayTest
-	CLASSPATH=/Users/erik/immutable javac -Xlint:unchecked com/toitware/immutable_test/ImmutableHashMapTest.java
-	CLASSPATH=/Users/erik/immutable java -ea com.toitware.immutable_test.ImmutableHashMapTest
+	CLASSPATH=. javac -Xlint:unchecked com/toitware/immutable_test/ImmutableArrayTest.java
+	CLASSPATH=. java -ea com.toitware.immutable_test.ImmutableArrayTest
+	CLASSPATH=. javac -Xlint:unchecked com/toitware/immutable_test/ImmutableHashMapTest.java
+	CLASSPATH=. java -ea com.toitware.immutable_test.ImmutableHashMapTest
+	(mkdir -p docs; cd docs; CLASSPATH=.. javadoc -public com.toitware.immutable)

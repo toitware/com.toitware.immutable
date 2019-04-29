@@ -11,38 +11,34 @@ import java.util.Collection;
 import java.util.function.Consumer;
 import java.util.Iterator;
 
-// An immutable array with O(log size) access to any element.  A new array that
-// differs at one position from this array can be made in O(log size) time.
-// The binary tree that backs the immutable array is always kept as shallow as
-// possible on the right hand side though its max depth is still bounded by the
-// log of the size, rounded up.  This means that a new array, one longer than
-// the current one can be made in O(1) time using the push() method.  (This is
-// almost true - the push() method is currently O(log size), but you would have
-// to have a 128 bit implementation of the Java Language to notice.  You
-// don't.)
+/** A concrete implementation of ImmutableCollection.
+ *  @see ImmutableCollection
+ */
 public class ImmutableArray<E> extends ImmutableCollection<E> {
-  // Unlike the size() method this is not limited to the range of an int.
-  public final long size;
+  protected final long size;
 
   // A tree that is 199 large has three full trees of 64 each in the leftmost
-  // _powers entry.  The next _powers entry has null, and the last
-  // points at an array with 7 elements.  If we add one element then the
-  // medium _powers entry gets a pointer to a 1-element array that points to
-  // the 8-entry leaf.
+  // _powers entry.  The next _powers entry has null, and the last points at an
+  // array with 7 elements.  If we add one element then the medium _powers
+  // entry gets a pointer to a 1-element array that points to the 8-entry leaf.
   private Object _powers[];
 
-  // Create an empty ImmutableArray.
+  /** Create an empty ImmutableArray. */
   public ImmutableArray() {
     size = 0;
   }
 
-  // Make an ImmutableArray that is a shallow copy of an array.
+  /** Make an ImmutableArray that is a shallow copy of an array.
+   *  @param array The array to be copied
+   */
   public ImmutableArray(E array[]) {
     size = array.length;
     _powers = _createBacking(Arrays.asList(array));
   }
 
-  // Make an ImmutableArray that is a shallow copy of another collection.
+  /** Make an ImmutableArray that is a shallow copy of another collection.
+   *  @param collection The collection to be copied
+   */
   public ImmutableArray(Collection<? extends E> collection) {
     if (collection instanceof ImmutableArray) {
       ImmutableArray other = (ImmutableArray)collection;
@@ -54,8 +50,6 @@ public class ImmutableArray<E> extends ImmutableCollection<E> {
     }
   }
 
-  // To conform to the AbstractCollection interface this returns an int, but
-  // see also the property 'size' and the method longSize().
   public int size() {
     if (size > Integer.MAX_VALUE) return Integer.MAX_VALUE;
     return (int)size;
@@ -69,7 +63,7 @@ public class ImmutableArray<E> extends ImmutableCollection<E> {
     return new ImmutableArrayIterator<E>(size, _powers);
   }
 
-  public ImmutableArrayIterator<E> iterator(long startAt) {
+  protected ImmutableArrayIterator<E> iterator(long startAt) {
     return new ImmutableArrayIterator<E>(size, _powers, startAt);
   }
 
@@ -105,7 +99,6 @@ public class ImmutableArray<E> extends ImmutableCollection<E> {
     return _get(tribbles - 1, index - (idx << (tribbles * 3)), array[(int)idx]);
   }
 
-  // Makes a copy of an array, but at the given index the value is substituted.
   static private Object[] _copyBut(Object old[], long index, Object value) {
     Object[] new_array = old == null ? new Object[1] : new Object[old.length];
     for (int i = 0; i < new_array.length; i++) {
@@ -129,9 +122,6 @@ public class ImmutableArray<E> extends ImmutableCollection<E> {
     return new_array;
   }
 
-  // Returns the first index whose element is equal to the needle, using
-  // equals().  Returns -1 if the needle is not found.
-  // Unlike the method of the same name on ArrayList, this one returns long.
   public long indexOf(Object needle) {
     long index = 0;
     for (Object obj : this) {
@@ -151,9 +141,6 @@ public class ImmutableArray<E> extends ImmutableCollection<E> {
     return -1;
   }
 
-  // Returns the last index whose element is equal to the needle, using
-  // equals().  Returns -1 if the needle is not found.
-  // TODO: Has complexity O(n log n), fix to be O(n).
   public long lastIndexOf(Object needle) {
     for (long index = size - 1; index >= 0; index--) {
       Object obj = get(index);
@@ -171,8 +158,6 @@ public class ImmutableArray<E> extends ImmutableCollection<E> {
     return -1;
   }
 
-  // Since the collection is immutable there is no reason to actually build a
-  // clone.  Returns itself.
   public Object clone() {
     return this;
   }
@@ -189,9 +174,6 @@ public class ImmutableArray<E> extends ImmutableCollection<E> {
     return new_array;
   }
 
-  // Unlike set() on ArrayList, this returns a new immutable collection that differs
-  // from the original one at position index, having value at that position instead.
-  // Time taken is O(log size).
   public ImmutableArray<E> atPut(long index, E value) {
     long len = size;
     if (index < 0 || index >= len) throw new IndexOutOfBoundsException();
@@ -259,16 +241,10 @@ public class ImmutableArray<E> extends ImmutableCollection<E> {
             _trimLeft(tribbles - 1, index - (idx << (tribbles * 3)), (Object[])array[(int)idx]));
   }
 
-  // Unlike add() on ArrayList, this returns a new immutable collection that differs
-  // from the original one only by having an extra element.
-  // Time taken is O(1), almost, but it has to allocate and initialize an object that
-  // has log2(size)/3 words.
   public ImmutableArray<E> push(E value) {
     return _push(1, value, null);
   }
 
-  // Push two values at once.  This is more efficient than two calls to push(E
-  // value) if the array has an even size.
   public ImmutableArray<E> push(E value1, E value2) {
     if ((size & 1) == 0) {
       return _push(2, value1, value2);
@@ -299,16 +275,10 @@ public class ImmutableArray<E> extends ImmutableCollection<E> {
     return powers;
   }
 
-  // Return a new ImmutableArray that is the current array with all elements of
-  // an array added to the end.  May return itself if the provided array is
-  // empty.
   public ImmutableArray<E> pushAll(E array[]) {
     return pushAll(Arrays.asList(array));
   }
 
-  // Return a new ImmutableArray that is the current array with all elements of
-  // a given collection added to the end.  May return itself if the provided
-  // collection is empty.
   public @SuppressWarnings("unchecked") ImmutableArray<E> pushAll(Collection<? extends E> collection) {
     if (collection.isEmpty()) return this;
     ImmutableArray<E> current = this;
