@@ -8,6 +8,7 @@ import com.toitware.immutable.ImmutableCollection;
 import com.toitware.immutable.ImmutableDeque;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Iterator;
 import java.util.Random;
 
 class ImmutableArrayTest {
@@ -89,7 +90,21 @@ class ImmutableArrayTest {
             control.get(dest).remove(0);
           }
           //System.out.println("Trim " + i + " from " + src + " and store to " + dest);
-          arrays = arrays.atPut(dest, arrays.get(src).subList(i));
+          ImmutableCollection<Integer> old = arrays.get(src);
+          arrays = arrays.atPut(dest, old.subList(i));
+          // Test forEachRemaining.
+          Iterator<Integer> it = old.iterator();
+          for (int j = 0; j < i; j++) {
+            assert(it.hasNext());
+            it.next();  // Skip the first i.
+          }
+          // The remaining ones should match the new collection.
+          int jBox[] = new int[] { 0 };
+          ImmutableCollection<Integer> noo = arrays.get(dest);
+          it.forEachRemaining((x)-> {
+            assert(x.equals(noo.get(jBox[0]++)));
+          });
+          assert(jBox[0] == noo.size());
           break;
         }
         case 3: {

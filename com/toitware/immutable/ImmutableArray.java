@@ -431,6 +431,7 @@ public class ImmutableArray<E> extends ImmutableCollection<E> {
 
   protected class ImmutableArrayIterator<E> implements Iterator<E> {
     private long _remaining;
+    private long _index;
     private Object _stack[][];
     private int _positions[];
     private Object _powers[];
@@ -439,13 +440,13 @@ public class ImmutableArray<E> extends ImmutableCollection<E> {
     public ImmutableArrayIterator(long length, Object[] powers) {
       _powers = powers;
       _remaining = length;
-      _init(0);
+      _index = 0;
     }
 
     public ImmutableArrayIterator(long length, Object[] powers, long starting) {
       _powers = powers;
       _remaining = length - starting;
-      _init(starting);
+      _index = starting;
     }
 
     private void _init(long starting) {
@@ -470,10 +471,19 @@ public class ImmutableArray<E> extends ImmutableCollection<E> {
       return _remaining > 0;
     }
 
+    public @SuppressWarnings("unchecked") void forEachRemaining(Consumer<? super E> action) {
+      if (_remaining != 0) {
+        ImmutableArray._forEachHelper(_powers, _index, action);
+      }
+      _remaining = 0;
+    }
+
     // Get next element in collection and advance by one.
     public @SuppressWarnings("unchecked") E next() {
       // Short version of next, designed to be inlined.
       assert hasNext();
+      if (_stack == null) _init(_index);
+      _index++;
       if (_positions[_powers_posn] != _stack[_powers_posn].length - 1) {
         _remaining--;
         return (E)_stack[_powers_posn][++_positions[_powers_posn]];
@@ -483,10 +493,10 @@ public class ImmutableArray<E> extends ImmutableCollection<E> {
 
     // Out of line version of _next for when we need to move to the next leaf.
     private @SuppressWarnings("unchecked") E _next() {
-      // The easy way to implement this is just to use _remaining and _at(), but this
-      // takes logn, giving an nlogn iteration over the whole collection.
-      // Instead we maintain a stack of positions at different levels of the
-      // tree, which gives O(n) iteration.
+      // The easy way to implement this is just to use _remaining and _at(),
+      // but this takes logn, giving an nlogn iteration over the whole
+      // collection.  Instead we maintain a stack of positions at different
+      // levels of the tree, which gives O(n) iteration.
       // The nth position in the _powers array has a tree under it that is n+1
       // deep, which also sets the size of the explicit stack we need.
       int idx = _powers_posn;
@@ -527,24 +537,28 @@ public class ImmutableArray<E> extends ImmutableCollection<E> {
 
   protected void forEach(long startAt, Consumer<? super E> action) {
     if (startAt < 0 || startAt > size) throw new IndexOutOfBoundsException();
-    if (_powers == null) return;
+    _forEachHelper(_powers, startAt, action);
+  }
+
+  private static void _forEachHelper(Object[] powers, long startAt, Consumer action) {
+    if (powers == null) return;
     long index = 0;
-    for (int p = _powers.length - 1; p >= 0; p--) {
-      if (_powers[p] != null) {
-        Object[] power = (Object[])_powers[p];
+    for (int p = powers.length - 1; p >= 0; p--) {
+      if (powers[p] != null) {
+        Object[] power = (Object[])powers[p];
         _forEachHelper(power, p, startAt, index, action);
         index += power.length << (3 * p);
       }
     }
   }
 
-  private @SuppressWarnings("unchecked") void _forEachHelper(Object[] array, int depth, long startAt, long index, Consumer<? super E> action) {
+  private static @SuppressWarnings("unchecked") void _forEachHelper(Object[] array, int depth, long startAt, long index, Consumer action) {
     long end = index + array.length << (3 * depth);
     if (end < startAt) return;
     if (depth == 0) {
       int start = startAt <= index ? 0 : (int)(startAt & 7);
       for (int i = start; i < array.length; i++) {
-        action.accept((E)array[i]);
+        action.accept(array[i]);
       }
     } else {
       for (int i = 0; i < array.length; i++) {
