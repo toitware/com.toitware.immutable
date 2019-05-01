@@ -9,6 +9,7 @@ import com.toitware.immutable.ImmutableDeque;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Iterator;
+import java.util.ListIterator;
 import java.util.Random;
 
 class ImmutableArrayTest {
@@ -196,7 +197,24 @@ class ImmutableArrayTest {
     for (int i : empty) {
       assert(false);
     }
+    Iterator<Integer> it = empty.iterator();
+    assert(!it.hasNext());
+    ListIterator<Integer> lit = empty.listIterator();
+    assert(!lit.hasNext());
+    assert(!lit.hasPrevious());
+
     ImmutableCollection<Integer> ft = empty.push(42);
+    it = ft.iterator();
+    assert(it.hasNext());
+    lit = ft.listIterator();
+    assert(lit.hasNext());
+    assert(!lit.hasPrevious());
+    assert(it.next() == 42);
+    assert(!it.hasNext());
+    assert(lit.next() == 42);
+    assert(!lit.hasNext());
+    assert(lit.hasPrevious());
+    assert(lit.previous() == 42);
     assert(!empty.contains(42));
     assert(empty.indexOf(42) == -1);
     assert(ft.size() == 1);
@@ -210,6 +228,7 @@ class ImmutableArrayTest {
     }
     assert(empty.size() == 0);
     assert(empty.longSize() == 0);
+
     ImmutableCollection<Integer> two_a = ft.push(103);
     ImmutableCollection<Integer> two_b = ft.push(7);
     assert(two_a.size() == 2);
@@ -229,11 +248,27 @@ class ImmutableArrayTest {
     Object[] as_array = p.toArray();
     Integer[] typed_array = new Integer[11];
     p.toArray(typed_array);
+    it = p.iterator();
+    lit = p.listIterator();
     for (int i = 0; i < 10; i++) {
+      assert(it.hasNext());
+      assert(lit.hasNext());
+      assert(lit.hasPrevious() == (i != 0));
+      int element1 = it.next();
+      int element2 = lit.next();
+      int element3 = lit.previous();
+      int element4 = lit.next();
+      assert(element1 == element2);
+      assert(element1 == element3);
+      assert(element1 == element4);
       assert(p.get(i) == i * i);
       assert(i * i == (Integer)as_array[i]);
       assert(i * i == typed_array[i]);
     }
+    assert(!it.hasNext());
+    assert(!lit.hasNext());
+    assert(lit.nextIndex() == 10);
+    assert(lit.previousIndex() == 9);
 
     for (int i = 0; i <= 10; i++) {
       ImmutableCollection trimmed = p.trim(i);
@@ -255,16 +290,39 @@ class ImmutableArrayTest {
     }
     assert(p.indexOf(36) == 6);
     assert(p.size() == 100);
+    it = p.iterator();
+    lit = p.listIterator();
     for (int i = 0; i < 100; i++) {
       assert(p.get(i) == i * i);
+      assert(it.next() == i * i);
+      assert(lit.next() == i * i);
+      assert(lit.previous() == i * i);
+      assert(lit.next() == i * i);
     }
+    assert(!it.hasNext());
+    assert(!lit.hasNext());
+    assert(lit.nextIndex() == 100);
+    assert(lit.previousIndex() == 99);
+
     for (int i = 100; i < 1000; i += 2) {
       p = p.push(i * i, (i + 1) * (i + 1));
     }
     assert(p.size() == 1000);
+    it = p.iterator();
+    lit = p.listIterator();
     for (int i = 0; i < 1000; i++) {
       assert(p.get(i) == i * i);
+      assert(i == lit.nextIndex());
+      assert(it.next() == i * i);
+      assert(lit.next() == i * i);
+      assert(i == lit.previousIndex());
+      assert(lit.previous() == i * i);
+      assert(lit.next() == i * i);
     }
+    assert(!it.hasNext());
+    assert(!lit.hasNext());
+    assert(lit.nextIndex() == 1000);
+    assert(lit.previousIndex() == 999);
 
     iBox[0] = 0;
     p.forEach((x)-> {

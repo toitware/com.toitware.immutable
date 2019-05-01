@@ -10,6 +10,7 @@ import java.util.Arrays;
 import java.util.Collection;
 import java.util.function.Consumer;
 import java.util.Iterator;
+import java.util.ListIterator;
 
 /** A concrete implementation of ImmutableCollection.
  *  @see ImmutableCollection
@@ -57,6 +58,10 @@ public class ImmutableArray<E> extends ImmutableCollection<E> {
 
   public long longSize() {
     return size;
+  }
+
+  public ListIterator<E> listIterator() {
+    return new ImmutableArrayListIterator<E>(size, _powers);
   }
 
   public ImmutableArrayIterator<E> iterator() {
@@ -430,12 +435,12 @@ public class ImmutableArray<E> extends ImmutableCollection<E> {
   }
 
   protected class ImmutableArrayIterator<E> implements Iterator<E> {
-    private long _remaining;
-    private long _index;
-    private Object _stack[][];
-    private int _positions[];
-    private Object _powers[];
-    private int _powers_posn;
+    protected long _remaining;
+    protected long _index;
+    protected Object _stack[][];
+    protected int _positions[];
+    protected Object _powers[];
+    protected int _powers_posn;
 
     public ImmutableArrayIterator(long length, Object[] powers) {
       _powers = powers;
@@ -449,7 +454,7 @@ public class ImmutableArray<E> extends ImmutableCollection<E> {
       _index = starting;
     }
 
-    private void _init(long starting) {
+    protected void _init(long starting) {
       if (_powers != null) {
         if (starting == 0) {
           _powers_posn = _powers.length - 1;
@@ -484,8 +489,8 @@ public class ImmutableArray<E> extends ImmutableCollection<E> {
       assert hasNext();
       if (_stack == null) _init(_index);
       _index++;
+      _remaining--;
       if (_positions[_powers_posn] != _stack[_powers_posn].length - 1) {
-        _remaining--;
         return (E)_stack[_powers_posn][++_positions[_powers_posn]];
       }
       return _next();
@@ -507,7 +512,6 @@ public class ImmutableArray<E> extends ImmutableCollection<E> {
           _stack[idx + 1] = (Object[])_stack[idx][_positions[idx]];
           _positions[idx + 1] = 0;
         }
-        _remaining--;
         return (E)_stack[idx][_positions[idx]];
       }
       // Need to move to the next element in the powers array.
@@ -515,10 +519,10 @@ public class ImmutableArray<E> extends ImmutableCollection<E> {
         _powers_posn--;
       } while (_powers[_powers_posn] == null);
       _populate_stack(0);
-      return next();
+      return (E)_stack[_powers_posn][++_positions[_powers_posn]];
     }
 
-    private void _populate_stack(long starting) {
+    protected void _populate_stack(long starting) {
       _stack[0] = (Object[])_powers[_powers_posn];
       int shift = _powers_posn * 3;
       for (int idx = 0; idx < _powers_posn; idx++) {
@@ -528,6 +532,75 @@ public class ImmutableArray<E> extends ImmutableCollection<E> {
         _stack[idx + 1] = (Object[])_stack[idx][_positions[idx]];
       }
       _positions[_powers_posn] = (int)((starting & 7) - 1);
+    }
+  }
+
+  protected class ImmutableArrayListIterator<E> extends ImmutableArrayIterator<E> implements ListIterator<E> {
+    public ImmutableArrayListIterator(long length, Object[] powers) {
+      super(length, powers);
+    }
+
+    public ImmutableArrayListIterator(long length, Object[] powers, long starting) {
+      super(length, powers, starting);
+    }
+
+    // Get previous element in collection and go back by one.
+    public @SuppressWarnings("unchecked") E previous() {
+      // Short version of previous, designed to be inlined.
+      if (_stack == null) _init(_index);
+      assert hasPrevious();
+      _index--;
+      _remaining++;
+      if (_positions[_powers_posn] != -1) {
+        return (E)_stack[_powers_posn][_positions[_powers_posn]--];
+      }
+      return _previous();
+    }
+
+    // Out of line version of _previous for when we need to move to the next
+    // leaf.
+    private @SuppressWarnings("unchecked") E _previous() {
+      int idx = _powers_posn;
+      while (idx >= 0 && _positions[idx] == 0) idx--;
+      if (idx != -1) {
+        _positions[idx]--;
+        for (; idx < _powers_posn; idx++) {
+          Object[] arraylet = (Object[])_stack[idx][_positions[idx]];
+          _stack[idx + 1] = arraylet;
+          _positions[idx + 1] = arraylet.length - 1;
+        }
+        return (E)_stack[idx][_positions[idx]];
+      }
+      // Need to move to the previous element in the powers array.
+      do {
+        _powers_posn++;
+      } while (_powers[_powers_posn] == null);
+      _populate_stack(((Object[])_powers[_powers_posn]).length << (_powers_posn * 3) - 1);
+      return (E)_stack[_powers_posn][_positions[_powers_posn]--];
+    }
+
+    public int nextIndex() {
+      return (int)(_index);
+    }
+
+    public int previousIndex() {
+      return (int)(_index - 1);
+    }
+
+    public boolean hasPrevious() {
+      return _index != 0;
+    }
+
+    public void add(E element) {
+      throw new UnsupportedOperationException();
+    }
+
+    public void set(E element) {
+      throw new UnsupportedOperationException();
+    }
+
+    public void remove() {
+      throw new UnsupportedOperationException();
     }
   }
 

@@ -9,6 +9,7 @@ import java.util.AbstractCollection;
 import java.util.Collection;
 import java.util.function.Consumer;
 import java.util.Iterator;
+import java.util.ListIterator;
 
 public class ImmutableDeque<E> extends ImmutableCollection<E> {
   private long _offset;
@@ -70,6 +71,10 @@ public class ImmutableDeque<E> extends ImmutableCollection<E> {
     return result == -1 ? -1 : result - _offset;
   }
 
+  public Object clone() {
+    return this;
+  }
+
   public ImmutableDeque<E> trim() {
     return trim(1);
   }
@@ -78,6 +83,10 @@ public class ImmutableDeque<E> extends ImmutableCollection<E> {
     if (by > longSize()) throw new IndexOutOfBoundsException();
     if (by == longSize()) return new ImmutableDeque<E>(0, new ImmutableArray<E>());
     return new ImmutableDeque<E>(_offset, _backing.trim(by));
+  }
+
+  public ListIterator<E> listIterator() {
+    return null;
   }
 
   public Iterator<E> iterator() {

@@ -8,6 +8,7 @@ import java.util.AbstractCollection;
 import java.util.Collection;
 import java.util.function.Consumer;
 import java.util.Iterator;
+import java.util.ListIterator;
 
 /** An immutable (fully persistent) list with O(log size) access to any
  *  element.  A new list that differs at one position from this
@@ -58,10 +59,16 @@ public abstract class ImmutableCollection<E> extends AbstractCollection<E> imple
   /** Create an iterator over the entire ImmutableCollection.  Since the
    *  ImmutableCollection cannot be mutated, there is no issue of what happens
    *  if the underlying collection is mutated during iteration.
-   *  @return A fresh iterator that does not implement remove() or
-   *      forEachRemaining
+   *  @return A fresh iterator that does not implement remove().
    */
   abstract public Iterator<E> iterator();
+
+  /** Create a list iterator over the entire ImmutableCollection.  Since the
+   *  ImmutableCollection cannot be mutated, there is no issue of what happens
+   *  if the underlying collection is mutated during iteration.
+   *  @return A fresh list iterator that does not implement remove().
+   */
+  abstract public ListIterator<E> listIterator();
 
   /** Get an arbitrary element of the ImmutableCollection. Takes an average
    *  time of O(log size).
