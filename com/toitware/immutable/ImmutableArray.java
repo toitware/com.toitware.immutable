@@ -438,7 +438,6 @@ public class ImmutableArray<E> extends ImmutableCollection<E> {
     protected long _remaining;
     protected long _index;
     protected Object _stack[][];
-    protected int _positions[];
     protected Object _powers[];
     protected int _powers_posn;
 
@@ -454,7 +453,8 @@ public class ImmutableArray<E> extends ImmutableCollection<E> {
       _index = starting;
     }
 
-    protected void _init(long starting) {
+    protected void _init() {
+      long starting = _index;
       if (_powers != null) {
         if (starting == 0) {
           _powers_posn = _powers.length - 1;
@@ -467,8 +467,7 @@ public class ImmutableArray<E> extends ImmutableCollection<E> {
           }
         }
         _stack = new Object[_powers.length][];
-        _positions = new int[_powers.length];
-        _populate_stack(starting);
+        _populate_stack();
       }
     }
 
@@ -487,51 +486,61 @@ public class ImmutableArray<E> extends ImmutableCollection<E> {
     public @SuppressWarnings("unchecked") E next() {
       // Short version of next, designed to be inlined.
       assert hasNext();
-      if (_stack == null) _init(_index);
-      _index++;
+      if (_stack == null) _init();
+      int arraylet_posn = (int)(_index & 7);
+      Object bottom_arraylet[] = _stack[_powers_posn];
+      E result = (E)bottom_arraylet[arraylet_posn];
       _remaining--;
-      if (_positions[_powers_posn] != _stack[_powers_posn].length - 1) {
-        return (E)_stack[_powers_posn][++_positions[_powers_posn]];
+      _index++;
+      arraylet_posn++;
+      if (arraylet_posn == bottom_arraylet.length) {
+        _next();
       }
-      return _next();
+      return result;
     }
 
     // Out of line version of _next for when we need to move to the next leaf.
-    private @SuppressWarnings("unchecked") E _next() {
-      // The easy way to implement this is just to use _remaining and _at(),
-      // but this takes logn, giving an nlogn iteration over the whole
-      // collection.  Instead we maintain a stack of positions at different
-      // levels of the tree, which gives O(n) iteration.
-      // The nth position in the _powers array has a tree under it that is n+1
-      // deep, which also sets the size of the explicit stack we need.
-      int idx = _powers_posn;
-      while (idx >= 0 && _positions[idx] == _stack[idx].length - 1) idx--;
-      if (idx != -1) {
-        _positions[idx]++;
-        for (; idx < _powers_posn; idx++) {
-          _stack[idx + 1] = (Object[])_stack[idx][_positions[idx]];
-          _positions[idx + 1] = 0;
+    private @SuppressWarnings("unchecked") void _next() {
+      // The easy way to implement this is just to use _index and something
+      // like _get(), but this takes logn, giving an nlogn iteration over the
+      // whole collection.  Instead we maintain a stack of arraylets at
+      // different levels of the tree, which gives O(n) iteration.  The nth
+      // position in the _powers array has a tree under it that is n+1 deep,
+      // which also sets the size of the explicit stack we need.
+      int shift = 0;
+      for (int idx = _powers_posn; idx >= 0; idx--) {
+        Object[] arraylet = (Object[])(_stack[idx]);
+        int arraylet_posn = (int)((_index >> shift) & 7);
+        if (arraylet_posn != 0 && arraylet_posn != arraylet.length) {
+          _populate_stack(shift, idx, arraylet);
+          return;
         }
-        return (E)_stack[idx][_positions[idx]];
+        shift += 3;
       }
-      // Need to move to the next element in the powers array.
+      // Need to move to next position in _powers array.
+      int powers_posn = _powers_posn;
       do {
-        _powers_posn--;
-      } while (_powers[_powers_posn] == null);
-      _populate_stack(0);
-      return (E)_stack[_powers_posn][++_positions[_powers_posn]];
+        powers_posn--;
+        if (powers_posn < 0) return;  // Hit the end.
+      } while (_powers[powers_posn] == null);
+      _powers_posn = powers_posn;
+      _populate_stack();
     }
 
-    protected void _populate_stack(long starting) {
-      _stack[0] = (Object[])_powers[_powers_posn];
-      int shift = _powers_posn * 3;
-      for (int idx = 0; idx < _powers_posn; idx++) {
-        int progress = (int)((starting >> shift) & 7);
+    protected void _populate_stack() {
+      Object top[] = (Object[])_powers[_powers_posn];
+      _stack[0] = top;
+      _populate_stack(_powers_posn * 3, 0, top);
+    }
+
+    protected void _populate_stack(int shift, int idx, Object arraylet[]) {
+      while (idx < _powers_posn) {
+        int arraylet_posn = (int)((_index >> shift) & 7);
+        idx++;
+        arraylet = (Object[])arraylet[arraylet_posn];
+        _stack[idx] = arraylet;
         shift -= 3;
-        _positions[idx] = progress;
-        _stack[idx + 1] = (Object[])_stack[idx][_positions[idx]];
       }
-      _positions[_powers_posn] = (int)((starting & 7) - 1);
     }
   }
 
@@ -547,36 +556,47 @@ public class ImmutableArray<E> extends ImmutableCollection<E> {
     // Get previous element in collection and go back by one.
     public @SuppressWarnings("unchecked") E previous() {
       // Short version of previous, designed to be inlined.
-      if (_stack == null) _init(_index);
+      if (_stack == null) _init();
       assert hasPrevious();
+      int arraylet_posn = (int)(_index & 7);
       _index--;
       _remaining++;
-      if (_positions[_powers_posn] != -1) {
-        return (E)_stack[_powers_posn][_positions[_powers_posn]--];
+      if (arraylet_posn == 0) {
+        _previous();
+        arraylet_posn = 8;
       }
-      return _previous();
+      arraylet_posn--;
+      return (E)_stack[_powers_posn][arraylet_posn];
     }
 
-    // Out of line version of _previous for when we need to move to the next
+    // Out of line version of _previous for when we need to move to the previous
     // leaf.
-    private @SuppressWarnings("unchecked") E _previous() {
-      int idx = _powers_posn;
-      while (idx >= 0 && _positions[idx] == 0) idx--;
-      if (idx != -1) {
-        _positions[idx]--;
-        for (; idx < _powers_posn; idx++) {
-          Object[] arraylet = (Object[])_stack[idx][_positions[idx]];
-          _stack[idx + 1] = arraylet;
-          _positions[idx + 1] = arraylet.length - 1;
+    private @SuppressWarnings("unchecked") void _previous() {
+      // The easy way to implement this is just to use _index and something
+      // like _get(), but this takes logn, giving an nlogn iteration over the
+      // whole collection.  Instead we maintain a stack of arraylets at
+      // different levels of the tree, which gives O(n) iteration.  The nth
+      // position in the _powers array has a tree under it that is n+1 deep,
+      // which also sets the size of the explicit stack we need.
+      int shift = 0;
+      for (int idx = _powers_posn; idx >= 0; idx--) {
+        Object[] arraylet = (Object[])(_stack[idx]);
+        int arraylet_posn = (int)((_index >> shift) & 7);
+        if (arraylet_posn != 7) {
+          _populate_stack(shift, idx, arraylet);
+          return;
         }
-        return (E)_stack[idx][_positions[idx]];
+        shift += 3;
       }
-      // Need to move to the previous element in the powers array.
+      // Need to move to previous position in _powers array.
+      int powers_posn = _powers_posn;
       do {
-        _powers_posn++;
-      } while (_powers[_powers_posn] == null);
-      _populate_stack(((Object[])_powers[_powers_posn]).length << (_powers_posn * 3) - 1);
-      return (E)_stack[_powers_posn][_positions[_powers_posn]--];
+        powers_posn++;
+        // Can't go earlier than the 0th element.
+        assert(powers_posn != _powers.length);
+      } while (_powers[powers_posn] == null);
+      _powers_posn = powers_posn;
+      _populate_stack();
     }
 
     public int nextIndex() {
