@@ -106,6 +106,12 @@ class ImmutableArrayTest {
             assert(x.equals(noo.get(jBox[0]++)));
           });
           assert(jBox[0] == noo.size());
+          ListIterator<Integer> lit = noo.listIterator(noo.size());
+          for (int j = noo.size() - 1; j >= 0; j--) {
+            assert(lit.hasPrevious());
+            assert(lit.previous() == noo.get(j));
+          }
+          assert(!lit.hasPrevious());
           break;
         }
         case 3: {
@@ -214,6 +220,10 @@ class ImmutableArrayTest {
     assert(lit.next() == 42);
     assert(!lit.hasNext());
     assert(lit.hasPrevious());
+    assert(lit.previous() == 42);
+    lit = ft.listIterator(1);  // One past the end.
+    assert(lit.hasPrevious());
+    assert(!lit.hasNext());
     assert(lit.previous() == 42);
     assert(!empty.contains(42));
     assert(empty.indexOf(42) == -1);
@@ -376,6 +386,8 @@ class ImmutableArrayTest {
   private static ImmutableCollection<Integer> factory(int n) {
     ImmutableCollection<Integer> a = new ImmutableArray<>();
     for (int i = 0; i < n; i++) a = a.push(i * i);
+    ListIterator<Integer> at_end = a.listIterator(n);
+    if (n != 0) assert(at_end.previous() == (n - 1) * (n - 1));
     return a;
   }
 

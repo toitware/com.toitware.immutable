@@ -64,6 +64,18 @@ public class ImmutableArray<E> extends ImmutableCollection<E> {
     return new ImmutableArrayListIterator<E>(size, _powers);
   }
 
+  public ListIterator<E> listIterator(int index) {
+    return new ImmutableArrayListIterator<E>(size, _powers, index, 0);
+  }
+
+  public ListIterator<E> listIterator(long index) {
+    return new ImmutableArrayListIterator<E>(size, _powers, index, 0);
+  }
+
+  protected ListIterator<E> listIterator(long index, long leftMost) {
+    return new ImmutableArrayListIterator<E>(size, _powers, index, leftMost);
+  }
+
   public ImmutableArrayIterator<E> iterator() {
     return new ImmutableArrayIterator<E>(size, _powers);
   }
@@ -331,7 +343,7 @@ public class ImmutableArray<E> extends ImmutableCollection<E> {
   }
 
   static private Object[] _pushHelper(Object old_powers[], long size, int count, Object value, boolean can_reuse) {
-    assert((size & (count - 1)) == 0);
+    assert (size & (count - 1)) == 0;
     Object new_powers[];
     if (_isPowerOf8(size + count)) {
       // Need to grow _powers array.
@@ -345,7 +357,7 @@ public class ImmutableArray<E> extends ImmutableCollection<E> {
       // Don't need to grow _powers array.
       if (can_reuse) {
         new_powers = old_powers;
-        assert(new_powers[0] == null);
+        assert new_powers[0] == null;
       } else {
         new_powers = _copyBut(old_powers, 0, null);
       }
@@ -450,6 +462,17 @@ public class ImmutableArray<E> extends ImmutableCollection<E> {
     public ImmutableArrayIterator(long length, Object[] powers, long starting) {
       _powers = powers;
       _remaining = length - starting;
+      if (_remaining < 0 || starting < 0 || starting > length) {
+        throw new IndexOutOfBoundsException();
+      }
+      if (starting == length && length != 0) {
+        // This is a special annoying case where the current position is
+        // one beyond the end.  In this case the _index is set to the
+        // correct position, but the arraylets in the _stack are set to
+        // to one less (the last real position).
+        _index = length - 1;
+        _init();  // Eagerly create and initialize.
+      }
       _index = starting;
     }
 
@@ -545,12 +568,17 @@ public class ImmutableArray<E> extends ImmutableCollection<E> {
   }
 
   protected class ImmutableArrayListIterator<E> extends ImmutableArrayIterator<E> implements ListIterator<E> {
+    private final long _start;
+
     public ImmutableArrayListIterator(long length, Object[] powers) {
       super(length, powers);
+      _start = 0;
     }
 
-    public ImmutableArrayListIterator(long length, Object[] powers, long starting) {
+    public ImmutableArrayListIterator(long length, Object[] powers, long starting, long leftmost_limit) {
       super(length, powers, starting);
+      if (starting < leftmost_limit) throw new IndexOutOfBoundsException();
+      _start = leftmost_limit;
     }
 
     // Get previous element in collection and go back by one.
@@ -593,7 +621,7 @@ public class ImmutableArray<E> extends ImmutableCollection<E> {
       do {
         powers_posn++;
         // Can't go earlier than the 0th element.
-        assert(powers_posn != _powers.length);
+        assert powers_posn != _powers.length;
       } while (_powers[powers_posn] == null);
       _powers_posn = powers_posn;
       _populate_stack();
@@ -608,7 +636,7 @@ public class ImmutableArray<E> extends ImmutableCollection<E> {
     }
 
     public boolean hasPrevious() {
-      return _index != 0;
+      return _index != _start;
     }
 
     public void add(E element) {

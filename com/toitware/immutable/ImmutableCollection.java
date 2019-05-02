@@ -70,6 +70,24 @@ public abstract class ImmutableCollection<E> extends AbstractCollection<E> imple
    */
   abstract public ListIterator<E> listIterator();
 
+  /** Create a list iterator over the entire ImmutableCollection.  Since the
+   *  ImmutableCollection cannot be mutated, there is no issue of what happens
+   *  if the underlying collection is mutated during iteration.
+   *  @param index The starting point, which must be between 0 and the size,
+   *      inclusive().
+   *  @return A fresh list iterator that does not implement remove().
+   */
+  abstract public ListIterator<E> listIterator(int index);
+
+  /** Create a list iterator over the entire ImmutableCollection.  Since the
+   *  ImmutableCollection cannot be mutated, there is no issue of what happens
+   *  if the underlying collection is mutated during iteration.
+   *  @param index The starting point, which must be between 0 and the size,
+   *      inclusive().
+   *  @return A fresh list iterator that does not implement remove().
+   */
+  abstract public ListIterator<E> listIterator(long index);
+
   /** Get an arbitrary element of the ImmutableCollection. Takes an average
    *  time of O(log size).
    *  @param index The index of the required element.

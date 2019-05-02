@@ -86,7 +86,17 @@ public class ImmutableDeque<E> extends ImmutableCollection<E> {
   }
 
   public ListIterator<E> listIterator() {
-    return null;
+    return _backing.listIterator(_offset, _offset);
+  }
+
+  public ListIterator<E> listIterator(int index) {
+    if (index < 0) throw new IndexOutOfBoundsException();
+    return _backing.listIterator(index + _offset, _offset);
+  }
+
+  public ListIterator<E> listIterator(long index) {
+    if (index < 0) throw new IndexOutOfBoundsException();
+    return _backing.listIterator(index + _offset, _offset);
   }
 
   public Iterator<E> iterator() {
