@@ -34,7 +34,7 @@ public class ImmutableArray<E> extends ImmutableCollection<E> {
    */
   public ImmutableArray(E array[]) {
     size = array.length;
-    _powers = _createBacking(Arrays.asList(array));
+    _powers = _pushHelper(null, 0, Arrays.asList(array), size);
   }
 
   /** Make an ImmutableArray that is a shallow copy of another collection.
@@ -47,7 +47,7 @@ public class ImmutableArray<E> extends ImmutableCollection<E> {
       _powers = other._powers;
     } else {
       size = collection.size();
-      _powers = _createBacking(collection);
+      _powers = _pushHelper(null, 0, collection, size);
     }
   }
 
@@ -269,107 +269,130 @@ public class ImmutableArray<E> extends ImmutableCollection<E> {
     return push(value1).push(value2);
   }
 
-  private static Object[] _createBacking(Collection collection) {
-    int index = 0;
-    int size = collection.size();
-    Object batch[] = null;
-    int batch_index = 0;
-    Object powers[] = null;
-    for (Object o : collection) {
-      if (batch == null) batch = new Object[size - index < 8 ? size - index : 8];
-      batch[batch_index++] = o;
-      if (batch_index == 8) {
-        powers = _pushHelper(powers, index, 8, batch, true);
-        index += 8;
-        batch = null;
-        batch_index = 0;
+  public ImmutableArray<E> pushAll(E array[]) {
+    return _pushAll(Arrays.asList(array), array.length);
+  }
+
+  public ImmutableArray<E> pushAll(Collection<? extends E> collection) {
+    return _pushAll(collection, collection.size());
+  }
+
+  public ImmutableArray<E> pushAll(ImmutableCollection<? extends E> collection) {
+    return _pushAll(collection, collection.longSize());
+  }
+
+  private ImmutableArray<E> _pushAll(Collection collection, long length) {
+    if (length == 0) return this;
+    return new ImmutableArray<E>(size + length, _pushHelper(_powers, size, collection, length));
+  }
+
+  private static Object[] _freshPowers(Object old_powers[], long additions) {
+    int powers_size;
+    if (old_powers == null) {
+      long po8 = 8;
+      powers_size = 1;
+      while (additions >= po8) {
+        powers_size++;
+        po8 <<= 3;
       }
+    } else {
+      powers_size = old_powers.length;
     }
-    if (batch_index != 0) {
-      if (powers == null) powers = new Object[1];
-      powers[0] = batch;
+    Object[] powers = new Object[powers_size];
+    if (old_powers != null) {
+      for (int i = 0; i < powers_size; i++) powers[i] = old_powers[i];
     }
     return powers;
   }
 
-  public ImmutableArray<E> pushAll(E array[]) {
-    return pushAll(Arrays.asList(array));
+  private static Object[] _pushHelper(Object old_powers[], long size, Collection collection, long remaining) {
+    Object[] powers = _freshPowers(old_powers, remaining);
+    Iterator it = collection.iterator();
+    int mod = (int)(size & 7);
+    if (mod != 0) {
+      int add = 8 - mod > remaining ? (int)remaining : 8 - mod;
+      Object old[] = (Object[])powers[0];
+      int old_size = old == null ? 0 : old.length;
+      Object arraylet[] = new Object[old_size + add];
+      for (int i = 0; i < old_size; i++) arraylet[i] = old[i];
+      for (int i = 0; i < add; i++) arraylet[old_size + i] = it.next();
+      if (arraylet.length == 8) {
+        powers[0] = null;
+        powers = _insertSubtree(powers, arraylet, 1);
+      } else {
+        powers[0] = arraylet;
+      }
+      remaining -= add;
+      size += add;
+      if (remaining == 0) return powers;
+    }
+    // We have a power of 8 size.  Try to push 8 at a time, or 8*8, or 8*8*8...
+    long at_a_time = 8;
+    int shift = 1;
+    while (at_a_time >= 8) {
+      if (at_a_time <= remaining) {
+        long next_aat = at_a_time << 3;
+        if (next_aat <= remaining && ((size & (next_aat - 1)) == 0)) {
+          at_a_time = next_aat;
+          shift++;
+        } else {
+          Object subtree[] = _createSubtree(at_a_time, it);
+          powers = _insertSubtree(powers, subtree, shift);
+          remaining -= at_a_time;
+          size += at_a_time;
+        }
+      } else {
+        at_a_time >>= 3;
+        shift--;
+      }
+    }
+    if (remaining > 0) {
+      assert remaining < 8;
+      Object arraylet[] = new Object[(int)remaining];
+      for (int i = 0; i < remaining; i++) arraylet[i] = it.next();
+      powers[0] = arraylet;
+    }
+    return powers;
   }
 
-  public @SuppressWarnings("unchecked") ImmutableArray<E> pushAll(Collection<? extends E> collection) {
-    if (collection.isEmpty()) return this;
-    ImmutableArray<E> current = this;
-    boolean can_reuse = false;
-    Object batch[] = null;
-    int batch_index = 0;
-    int index = 0;
-    // Pushes elements 8 at a time for better efficiency.
-    for (E o : collection) {
-      if (batch == null) {
-        if ((current.size & 7) == 0) {
-          batch = new Object[8];
-          batch_index = 0;
-        } else {
-          current = current.push(o);
-          can_reuse = true;
-          continue;
-        }
-      }
-      batch[batch_index++] = o;
-      if (batch_index == 8) {
-        current = new ImmutableArray<E>(current.size + 8, _pushHelper(current._powers, current.size, 8, batch, can_reuse));
-        can_reuse = true;
-        batch = new Object[8];
-        batch_index = 0;
+  private static Object[] _createSubtree(long at_a_time, Iterator it) {
+    Object arraylet[] = new Object[8];
+    for (int i = 0; i < 8; i++) {
+      if (at_a_time == 8) {
+        arraylet[i] = it.next();
+      } else {
+        arraylet[i] = _createSubtree(at_a_time >> 3, it);
       }
     }
-    for (int i = 0; i < batch_index; i++) {
-      current = current.push((E)batch[i]);
-    }
-    return current;
+    return arraylet;
   }
 
   private ImmutableArray<E> _push(int count, Object value1, Object value2) {
-    if (((size + count) & 7) != 0) {
-      return new ImmutableArray<E>(
-          size + count,
-          _copyBut(
-              _powers,
-              0,
-              _copyAppend(_powers == null ? null : (Object[])_powers[0], count, value1, value2)));
+    Object powers[] = _freshPowers(_powers, count);
+    Object tail[] = _copyAppend((Object[])powers[0], count, value1, value2);
+    if (tail.length == 8) {
+      powers[0] = null;
+      powers = _insertSubtree(powers, tail, 1);
+    } else {
+      powers[0] = tail;
     }
-    Object value = _copyAppend((Object[])_powers[0], count, value1, value2);
-    return new ImmutableArray<E>(size + count, _pushHelper(_powers, size, count, value, false));
+    return new ImmutableArray<E>(size + count, powers);
   }
 
-  static private Object[] _pushHelper(Object old_powers[], long size, int count, Object value, boolean can_reuse) {
-    assert (size & (count - 1)) == 0;
-    Object new_powers[];
-    if (_isPowerOf8(size + count)) {
-      // Need to grow _powers array.
-      if (old_powers == null) {
-        new_powers = new Object[2];
-      } else {
-        new_powers = _copyAppend(old_powers, 1, null, null);
-        new_powers[0] = null;
-      }
-    } else {
-      // Don't need to grow _powers array.
-      if (can_reuse) {
-        new_powers = old_powers;
-        assert new_powers[0] == null;
-      } else {
-        new_powers = _copyBut(old_powers, 0, null);
-      }
+  static private Object[] _insertSubtree(Object powers[], Object value, int shift) {
+    for (int i = shift; i < powers.length; i++) {
+      Object new_value[] = _copyAppend((Object[])powers[i], 1, value, null);
+      powers[i] = new_value;
+      if (new_value.length != 8) return powers;
+      value = powers[i];
+      powers[i] = null;
     }
-    for (int i = 1; i < new_powers.length; i++) {
-      Object new_value[] = _copyAppend((Object[])new_powers[i], 1, value, null);
-      new_powers[i] = new_value;
-      if (new_value.length != 8) break;
-      value = new_powers[i];
-      new_powers[i] = null;
-    }
-    return new_powers;
+    // Need to grow powers array.
+    powers = new Object[powers.length + 1];
+    Object arraylet[] = new Object[1];
+    arraylet[0] = value;
+    powers[powers.length - 1] = arraylet;
+    return powers;
   }
 
   public ImmutableCollection<E> shift() {
