@@ -14,11 +14,20 @@ import java.util.Random;
 
 class ImmutableArrayTest {
   public static void main(String args[]) {
+    mul_test();
     simple_test();
     random_test();
     random_test2();
     push_all_test();
     leak_deque_test();
+  }
+
+  private static void mul_test() {
+    for (int i = 0; i < 64; i++) {
+      int real = i / 3;
+      int approx = (i * 43) >> 7;
+      assert(real == approx);
+    }
   }
 
   private static void random_test() {

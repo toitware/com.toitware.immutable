@@ -92,28 +92,24 @@ public class ImmutableArray<E> extends ImmutableCollection<E> {
     return get((long)index);
   }
 
+  private int _powerPosn(long index) {
+    // Multiplying by 43 and shifting down by 7 is just a way to divide by 3.
+    return ((63 - Long.numberOfLeadingZeros(index ^ size)) * 43) >> 7;
+  }
+
   public E get(long index) {
     long len = size;
-    //System.out.println("" + index + "/" + len);
     if (index < 0 || index >= len) throw new IndexOutOfBoundsException();
-    int length_tribbles = _powers.length - 1;
-    while (true) {
-      long top_index_digit = index >>> (3 * length_tribbles);
-      long top_length_digit = len >>> (3 * length_tribbles);
-      if (top_index_digit < top_length_digit) {
-        return _get(length_tribbles, index, _powers[length_tribbles]);
-      }
-      index -= top_index_digit << (3 * length_tribbles);
-      len -= top_index_digit << (3 * length_tribbles);
-      length_tribbles--;
-    }
+    int power_posn = _powerPosn(index);
+    long mask = (1 << ((power_posn + 1) * 3)) - 1;
+    return _get(power_posn, index & mask, _powers[power_posn]);
   }
 
   @SuppressWarnings("unchecked")
   private E _get(int tribbles, long index, Object obj) {
     Object array[] = (Object[])obj;
+    if (tribbles == 0) return (E)array[(int)index];
     long idx = index >>> (tribbles * 3);
-    if (tribbles == 0) return (E)array[(int)idx];
     return _get(tribbles - 1, index - (idx << (tribbles * 3)), array[(int)idx]);
   }
 
@@ -220,22 +216,14 @@ public class ImmutableArray<E> extends ImmutableCollection<E> {
   public ImmutableArray<E> atPut(long index, E value) {
     long len = size;
     if (index < 0 || index >= len) throw new IndexOutOfBoundsException();
-    int length_tribbles = _powers.length - 1;
-    while (true) {
-      long top_index_digit = index >>> (3 * length_tribbles);
-      long top_length_digit = len >>> (3 * length_tribbles);
-      if (top_index_digit < top_length_digit) {
-        return new ImmutableArray<E>(
-            size,
-            _copyBut(
-                _powers,
-                length_tribbles,
-                _atPut(length_tribbles, value, index, (Object[])_powers[length_tribbles])));
-      }
-      index -= top_index_digit << (3 * length_tribbles);
-      len -= top_index_digit << (3 * length_tribbles);
-      length_tribbles--;
-    }
+    int power_posn = _powerPosn(index);
+    long mask = (1 << ((power_posn + 1) * 3)) - 1;
+    return new ImmutableArray<E>(
+        size,
+        _copyBut(
+            _powers,
+            power_posn,
+            _atPut(power_posn, value, index & mask, (Object[])_powers[power_posn])));
   }
 
   private Object[] _atPut(int tribbles, Object value, long index, Object array[]) {
