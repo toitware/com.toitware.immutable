@@ -52,8 +52,7 @@ public class ImmutableArray<E> extends ImmutableCollection<E> {
   }
 
   public int size() {
-    if (size > Integer.MAX_VALUE) return Integer.MAX_VALUE;
-    return (int)size;
+    return _longTruncator(size);
   }
 
   public long longSize() {
@@ -147,12 +146,12 @@ public class ImmutableArray<E> extends ImmutableCollection<E> {
     return new_array;
   }
 
-  public long indexOf(Object needle) {
+  public int indexOf(Object needle) {
     // Not worth creating an iterator for small collections.
-    if (size < 64) return indexOf(needle, 0);
+    if (size < 64) return (int)indexOf(needle, 0);
     long index = 0;
     for (Object obj : this) {
-      if ((needle == null && obj == null)|| needle.equals(obj)) return index;
+      if ((needle == null && obj == null)|| needle.equals(obj)) return _longTruncator(index);
       index++;
     }
     return -1;
@@ -171,15 +170,15 @@ public class ImmutableArray<E> extends ImmutableCollection<E> {
       long index = starting;
       while (lit.hasNext()) {
         Object obj = lit.next();
-        if ((needle == null && obj == null) || needle.equals(obj)) return index;
+        if ((needle == null && obj == null) || needle.equals(obj)) return _longTruncator(index);
         index++;
       }
     }
     return -1;
   }
 
-  public long lastIndexOf(Object needle) {
-    return lastIndexOf(needle, 0);
+  public int lastIndexOf(Object needle) {
+    return _longTruncator(lastIndexOf(needle, 0));
   }
 
   protected long lastIndexOf(Object needle, long stopAt) {
@@ -196,7 +195,7 @@ public class ImmutableArray<E> extends ImmutableCollection<E> {
       while (index > stopAt) {
         Object obj = lit.previous();
         index--;
-        if ((needle == null && obj == null) || needle.equals(obj)) return index;
+        if ((needle == null && obj == null) || needle.equals(obj)) return _longTruncator(index);
       }
     }
     return -1;

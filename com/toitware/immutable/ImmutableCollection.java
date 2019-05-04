@@ -107,14 +107,14 @@ public abstract class ImmutableCollection<E> extends AbstractCollection<E> imple
    *  @param needle The element to be found
    *  @return The index of the found element, or -1 if the needle is not found.
    */
-  abstract public long indexOf(E needle);
+  abstract public int indexOf(E needle);
 
   /** Find the last element that is equal to the needle, using equals().
    *  Unlike the method of the same name on ArrayList, this one returns long.
    *  @param needle The element to be found
    *  @return The index of the found element, or -1 if the needle is not found.
    */
-  abstract public long lastIndexOf(E needle);
+  abstract public int lastIndexOf(E needle);
 
   /** Since the collection is immutable there is no reason to actually build a
    *  clone.
@@ -240,4 +240,9 @@ public abstract class ImmutableCollection<E> extends AbstractCollection<E> imple
    *      of this.
    */
   abstract public ImmutableCollection<E> subList(long from, long to);
+
+  protected int _longTruncator(long input) {
+    if (input > Integer.MAX_VALUE) return Integer.MAX_VALUE;
+    return (int)input;
+  }
 }

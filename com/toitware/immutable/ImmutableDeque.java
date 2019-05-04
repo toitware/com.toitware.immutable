@@ -92,14 +92,14 @@ public class ImmutableDeque<E> extends ImmutableCollection<E> {
     return current;
   }
 
-  public long indexOf(E object) {
+  public int indexOf(E object) {
     long result = _backing.indexOf(object, _offset);
-    return result == -1 ? -1 : result - _offset;
+    return result == -1 ? -1 : _longTruncator(result - _offset);
   }
 
-  public long lastIndexOf(E object) {
+  public int lastIndexOf(E object) {
     long result = _backing.lastIndexOf(object, _offset);
-    return result == -1 ? -1 : result - _offset;
+    return result == -1 ? -1 : _longTruncator(result - _offset);
   }
 
   public Object clone() {
@@ -146,6 +146,10 @@ public class ImmutableDeque<E> extends ImmutableCollection<E> {
     if (_offset + from > _backing.size) throw new IndexOutOfBoundsException();
     if (_offset + from == _backing.size) return new ImmutableDeque<E>(0, new ImmutableArray<E>());
     return new ImmutableDeque<E>(_offset + from, _backing);
+  }
+
+  public ImmutableDeque<E> subList(int from, int to) {
+    return subList((long)from, to);
   }
 
   public ImmutableDeque<E> subList(long from, long to) {
