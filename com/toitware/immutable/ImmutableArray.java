@@ -93,8 +93,11 @@ public class ImmutableArray<E> extends ImmutableCollection<E> {
     return get((long)index);
   }
 
+  public String toString() { return "IA " + size; }
+
   public E get(long index) {
     long len = size;
+    //System.out.println("" + index + "/" + len);
     if (index < 0 || index >= len) throw new IndexOutOfBoundsException();
     int length_tribbles = _powers.length - 1;
     while (true) {
@@ -116,12 +119,18 @@ public class ImmutableArray<E> extends ImmutableCollection<E> {
     return _get(tribbles - 1, index - (idx << (tribbles * 3)), array[(int)idx]);
   }
 
-  static private Object[] _copyBut(Object old[], long index, Object value) {
-    Object[] new_array = old == null ? new Object[1] : new Object[old.length];
-    for (int i = 0; i < new_array.length; i++) {
-      new_array[i] = (i == index) ? value : old[i];
+  static private Object[] _copyBut(Object old[], int index, Object value) {
+    if (old == null) {
+      Object[] new_array = new Object[index + 1];
+      new_array[index] = value;
+      return new_array;
+    } else {
+      Object[] new_array = new Object[old.length];
+      for (int i = 0; i < new_array.length; i++) {
+        new_array[i] = (i == index) ? value : old[i];
+      }
+      return new_array;
     }
-    return new_array;
   }
 
   // Makes a copy of an array, but at the given index the value is substituted,
@@ -232,13 +241,36 @@ public class ImmutableArray<E> extends ImmutableCollection<E> {
   }
 
   private Object[] _atPut(int tribbles, Object value, long index, Object array[]) {
-    long idx = index >>> (tribbles * 3);
+    int idx = (int)(index >>> (tribbles * 3));
+    if (array == null) array = new Object[8];
     return _copyBut(
         array,
         idx,
         tribbles == 0 ?
             value :
             _atPut(tribbles - 1, value, index - (idx << (tribbles * 3)), (Object[])array[(int)idx]));
+  }
+
+  protected ImmutableArray<E> _newWithSpaceOnLeft() {
+    if (size == 0) {
+      // Handle specially the case where the backing has a null powers array.
+      return push(null);
+    }
+    int shift = _powers.length - 1;
+    Object arraylet[] = (Object[])_powers[shift];
+    Object new_arraylet[] = new Object[arraylet.length + 1];
+    for (int i = 0; i < arraylet.length; i++) new_arraylet[i + 1] = arraylet[i];
+    long extra_space = 1L << (shift * 3);
+    Object new_powers[];
+    if (arraylet.length == 7)  {
+      // We have to extend the powers array.
+      new_powers = _copyAppend(_powers, 1, new Object[] { new_arraylet }, null);
+      new_powers[shift] = null;
+    } else {
+      // There is space in the top of the powers array for a new entry.
+      new_powers = _copyBut(_powers, shift, new_arraylet);
+    }
+    return new ImmutableArray<E>(size + extra_space, new_powers);
   }
 
   // Null out all entries to the left of the given index. This is used by
@@ -412,6 +444,18 @@ public class ImmutableArray<E> extends ImmutableCollection<E> {
     arraylet[0] = value;
     powers[powers.length - 1] = arraylet;
     return powers;
+  }
+
+  public ImmutableDeque<E> unshift(E value) {
+    return new ImmutableDeque<E>(0, this).unshift(value);
+  }
+
+  public ImmutableDeque<E> unshiftAll(E array[]) {
+    return new ImmutableDeque<E>(0, this).unshiftAll(array);
+  }
+
+  public ImmutableDeque<E> unshiftAll(Collection<? super E> collection) {
+    return new ImmutableDeque<E>(0, this).unshiftAll(collection);
   }
 
   public ImmutableCollection<E> shift() {

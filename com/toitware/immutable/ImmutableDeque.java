@@ -6,9 +6,12 @@ package com.toitware.immutable;
 
 import com.toitware.immutable.ImmutableCollection;
 import java.util.AbstractCollection;
+import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collection;
 import java.util.function.Consumer;
 import java.util.Iterator;
+import java.util.List;
 import java.util.ListIterator;
 
 public class ImmutableDeque<E> extends ImmutableCollection<E> {
@@ -59,6 +62,35 @@ public class ImmutableDeque<E> extends ImmutableCollection<E> {
 
   public ImmutableDeque<E> pushAll(Collection<? extends E> collection) {
     return new ImmutableDeque<E>(_offset, _backing.pushAll(collection));
+  }
+
+  public ImmutableDeque<E> unshift(E value) {
+    if (_offset != 0) {
+      // There is space in the trimmed left hand side of the backing, so we
+      // can just write it there.
+      return new ImmutableDeque<E>(_offset - 1, _backing.atPut(_offset - 1, value));
+    }
+
+    ImmutableArray<E> new_backing = _backing._newWithSpaceOnLeft();
+    long extra_space = new_backing.size - _backing.size;
+    return new ImmutableDeque<E>(extra_space - 1, new_backing.atPut(extra_space - 1, value));
+  }
+
+  public @SuppressWarnings("unchecked") ImmutableDeque<E> unshiftAll(E array[]) {
+    return unshiftAll(Arrays.asList(array));
+  }
+
+  public String toString() { return "ID " + _offset + " cropped from " + _backing.size; }
+
+  public @SuppressWarnings("unchecked") ImmutableDeque<E> unshiftAll(Collection<? super E>collection) {
+    if (collection.isEmpty()) return this;
+    List<? super E> list = new ArrayList<>(collection);
+    ListIterator<? super E> lit = list.listIterator(list.size());
+    ImmutableDeque<E> current = this;
+    while (lit.hasPrevious()) {
+      current = current.unshift((E)lit.previous());
+    }
+    return current;
   }
 
   public long indexOf(E object) {

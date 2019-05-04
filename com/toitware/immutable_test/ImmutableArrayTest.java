@@ -52,7 +52,7 @@ class ImmutableArrayTest {
       int src = random.nextInt(ARRAYS);
       int dest = random.nextInt(ARRAYS);
       int amount = random.nextInt(4) + 1;
-      switch (random.nextInt(6)) {
+      switch (random.nextInt(7)) {
         case 0: {
           // Push.
           //System.out.println("Push " + amount + " on " + src + " and store to " + dest);
@@ -156,6 +156,30 @@ class ImmutableArrayTest {
             arrays = arrays.atPut(dest, arrays.get(src).subList(fromStart, len - fromEnd));
           }
         }
+        case 6: {
+          if (control.get(dest).size() > 897) {
+            //System.out.println("Truncate " + dest);
+            control.set(dest, new ArrayList<Integer>());
+            arrays = arrays.atPut(dest, new ImmutableArray<Integer>());
+          } else {
+            // Prepend.
+            //System.out.println("Prepend " + src + " onto " + dest);
+            ArrayList<Integer> old_dest = control.get(dest);
+            ArrayList<Integer> old_source = control.get(src);
+            control.set(dest, new ArrayList<Integer>());
+            control.get(dest).addAll(old_source);
+            control.get(dest).addAll(old_dest);
+            if (random.nextBoolean()) {
+              arrays = arrays.atPut(dest, arrays.get(dest).unshiftAll(arrays.get(src)));
+            } else {
+              ImmutableCollection<Integer> source = arrays.get(src);
+              Integer as_array[] = new Integer[source.size()];
+              source.toArray(as_array);
+              arrays = arrays.atPut(dest, arrays.get(dest).unshiftAll(as_array));
+            }
+            break;
+          }
+        }
       }
       for (int i = 0; i < ARRAYS; i++) {
         assert(control.get(i).size() == arrays.get(i).size());
@@ -196,23 +220,10 @@ class ImmutableArrayTest {
     }
   }
 
-  private static void simple_test() {
-    ImmutableCollection<Integer> empty = new ImmutableArray<>();
-    assert(empty.size() == 0);
-    assert(empty.isEmpty());
-    for (int i : empty) {
-      assert(false);
-    }
-    Iterator<Integer> it = empty.iterator();
-    assert(!it.hasNext());
-    ListIterator<Integer> lit = empty.listIterator();
-    assert(!lit.hasNext());
-    assert(!lit.hasPrevious());
-
-    ImmutableCollection<Integer> ft = empty.push(42);
-    it = ft.iterator();
+  private static void ft_test(ImmutableCollection<Integer> ft, ImmutableCollection<Integer> empty) {
+    Iterator<Integer> it = ft.iterator();
     assert(it.hasNext());
-    lit = ft.listIterator();
+    ListIterator<Integer> lit = ft.listIterator();
     assert(lit.hasNext());
     assert(!lit.hasPrevious());
     assert(it.next() == 42);
@@ -238,6 +249,25 @@ class ImmutableArrayTest {
     }
     assert(empty.size() == 0);
     assert(empty.longSize() == 0);
+  }
+
+  private static void simple_test() {
+    ImmutableCollection<Integer> empty = new ImmutableArray<>();
+    assert(empty.size() == 0);
+    assert(empty.isEmpty());
+    for (int i : empty) {
+      assert(false);
+    }
+    Iterator<Integer> it = empty.iterator();
+    assert(!it.hasNext());
+    ListIterator<Integer> lit = empty.listIterator();
+    assert(!lit.hasNext());
+    assert(!lit.hasPrevious());
+
+    ImmutableCollection<Integer> ft = empty.push(42);
+    ft_test(ft, empty);
+    ImmutableCollection<Integer> ft2 = empty.unshift(42);
+    ft_test(ft2, empty);
 
     ImmutableCollection<Integer> two_a = ft.push(103);
     ImmutableCollection<Integer> two_b = ft.push(7);
@@ -249,6 +279,29 @@ class ImmutableArrayTest {
     assert(two_b.get(0) == 42);
     assert(two_a.get(1) == 103);
     assert(two_b.get(1) == 7);
+
+    ImmutableCollection<Integer> love = two_a.unshift(3000);
+    ImmutableCollection<Integer> futures = two_b.unshift(14000605);
+
+    assert(love.size() == 3);
+    assert(futures.size() == 3);
+    it = love.iterator();
+    lit = love.listIterator();
+    assert(it.hasNext());
+    assert(lit.hasNext());
+    assert(it.next() == 3000);
+    assert(lit.next() == 3000);
+    assert(it.hasNext());
+    assert(lit.hasNext());
+    assert(it.next() == 42);
+    assert(lit.next() == 42);
+    assert(it.hasNext());
+    assert(lit.hasNext());
+    assert(it.next() == 103);
+    assert(lit.next() == 103);
+    assert(!it.hasNext());
+    assert(!lit.hasNext());
+
     ImmutableCollection<Integer> p = new ImmutableArray<>();
     for (int i = 0; i < 10; i++) {
       p = p.push(i * i);

@@ -174,6 +174,32 @@ public abstract class ImmutableCollection<E> extends AbstractCollection<E> imple
    */
   abstract public ImmutableCollection<E> pushAll(Collection<? extends E> collection);
 
+  /** Push a value on the start of the collection.  Takes O(log size) time.
+   *  @param value The value to be prepended.
+   *  @return A new ImmutableCollection that is one longer.
+   */
+  abstract public ImmutableDeque<E> unshift(E value);
+
+  /** Push a collection of values on the start of the collection.  Does not
+   *  reverse the order, ie at the end the unshifted elements have the same
+   *  order in the return value as they had in the passed collection.
+   *  TODO: Currently O(n log m) when a collection size n is prepende on one
+   *  size m.
+   *  @param collection The collection to be prepended.
+   *  @return A new ImmutableCollection that has the given collection prepended.
+   */
+  abstract public ImmutableDeque<E> unshiftAll(Collection<? super E>collection);
+
+  /** Push an array of values on the start of the collection.  Does not
+   *  reverse the order, ie at the end the unshifted elements have the same
+   *  order in the return value as they had in the passed array.
+   *  TODO: Currently O(n log m) when an array length n is prepended on a
+   *  collection of size m.
+   *  @param array The array to be prepended.
+   *  @return A new ImmutableCollection that has the given array prepended.
+   */
+  abstract public @SuppressWarnings("unchecked") ImmutableDeque<E> unshiftAll(E array[]);
+
   /** Create a new ImmutableCollection without the last element of this.
    *  Time taken is on average O(1).  GC safe in the sense that the discarded
    *  last element is not kept alive by the new ImmutableCollection.
