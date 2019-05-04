@@ -111,7 +111,6 @@ public abstract class ImmutableCollection<E> extends AbstractCollection<E> imple
 
   /** Find the last element that is equal to the needle, using equals().
    *  Unlike the method of the same name on ArrayList, this one returns long.
-   *  TODO: Has complexity O(n log n), fix to be O(n).
    *  @param needle The element to be found
    *  @return The index of the found element, or -1 if the needle is not found.
    */

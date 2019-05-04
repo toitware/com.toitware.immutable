@@ -140,6 +140,8 @@ public class ImmutableArray<E> extends ImmutableCollection<E> {
   }
 
   public long indexOf(Object needle) {
+    // Not worth creating an iterator for small collections.
+    if (size < 64) return indexOf(needle, 0);
     long index = 0;
     for (Object obj : this) {
       if ((needle == null && obj == null)|| needle.equals(obj)) return index;
@@ -148,29 +150,46 @@ public class ImmutableArray<E> extends ImmutableCollection<E> {
     return -1;
   }
 
-  // TODO: Has complexity O(n log n), fix to be O(n).
   protected long indexOf(Object needle, long starting) {
     if (starting > size) throw new IndexOutOfBoundsException();
-    for (long index = starting; index < size; index++) {
-      Object obj = get(index);
-      if ((needle == null && obj == null) || needle.equals(obj)) return index;
+    // Not worth creating an iterator for small collections.
+    if (size < 64) {
+      for (long index = starting; index < size; index++) {
+        Object obj = get(index);
+        if ((needle == null && obj == null) || needle.equals(obj)) return index;
+      }
+    } else {
+      ListIterator<E> lit = listIterator(starting);
+      long index = starting;
+      while (lit.hasNext()) {
+        Object obj = lit.next();
+        if ((needle == null && obj == null) || needle.equals(obj)) return index;
+        index++;
+      }
     }
     return -1;
   }
 
   public long lastIndexOf(Object needle) {
-    for (long index = size - 1; index >= 0; index--) {
-      Object obj = get(index);
-      if ((needle == null && obj == null) || needle.equals(obj)) return index;
-    }
-    return -1;
+    return lastIndexOf(needle, 0);
   }
 
   protected long lastIndexOf(Object needle, long stopAt) {
     if (stopAt < 0) throw new IndexOutOfBoundsException();
-    for (long index = size - 1; index >= stopAt; index--) {
-      Object obj = get(index);
-      if ((needle == null && obj == null) || needle.equals(obj)) return index;
+    // Not worth creating an iterator for small collections.
+    if (size - stopAt < 64) {
+      for (long index = size - 1; index >= stopAt; index--) {
+        Object obj = get(index);
+        if ((needle == null && obj == null) || needle.equals(obj)) return index;
+      }
+    } else {
+      ListIterator<E> lit = listIterator(size);
+      long index = size;
+      while (index > stopAt) {
+        Object obj = lit.previous();
+        index--;
+        if ((needle == null && obj == null) || needle.equals(obj)) return index;
+      }
     }
     return -1;
   }
