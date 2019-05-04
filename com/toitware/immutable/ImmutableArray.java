@@ -446,15 +446,39 @@ public class ImmutableArray<E> extends ImmutableCollection<E> {
     return powers;
   }
 
-  public ImmutableDeque<E> unshift(E value) {
+  public ImmutableCollection<E> unshift(E value) {
+    if (size < 16) {
+      // For small collections, the ImmutableArray is more memory efficient
+      // than the ImmutableDeque.
+      return new ImmutableArray<E>().push(value).pushAll(this);
+    }
     return new ImmutableDeque<E>(0, this).unshift(value);
   }
 
-  public ImmutableDeque<E> unshiftAll(E array[]) {
+  public ImmutableCollection<E> unshiftAll(E array[]) {
+    if (size + array.length <= 16) {
+      // For small collections, the ImmutableArray is more memory efficient
+      // than the ImmutableDeque.
+      return new ImmutableArray<E>(array).pushAll(this);
+    }
     return new ImmutableDeque<E>(0, this).unshiftAll(array);
   }
 
-  public ImmutableDeque<E> unshiftAll(Collection<? super E> collection) {
+  public @SuppressWarnings("unchecked") ImmutableCollection<E> unshiftAll(Collection<? super E> collection) {
+    if (size + collection.size() <= 16) {
+      // For small collections, the ImmutableArray is more memory efficient
+      // than the ImmutableDeque.
+      if (collection instanceof ImmutableArray) {
+        return ((ImmutableArray)collection).pushAll(this);
+      }
+      return new ImmutableArray(collection).pushAll(this);
+    }
+    if (collection instanceof ImmutableCollection &&
+        size < collection.size()) {
+      // Reverse the operation if we are prepending a large thing onto a
+      // smaller thing.
+      return ((ImmutableCollection)collection).pushAll(this);
+    }
     return new ImmutableDeque<E>(0, this).unshiftAll(collection);
   }
 
@@ -464,13 +488,13 @@ public class ImmutableArray<E> extends ImmutableCollection<E> {
 
   public @SuppressWarnings("unchecked") ImmutableCollection<E> subList(long from) {
     if (from == 0) return this;
-    if (from == size) return new ImmutableDeque<E>(0, new ImmutableArray());
+    if (from == size) return new ImmutableArray<E>();
     return new ImmutableDeque<E>(from, this);
   }
 
   public @SuppressWarnings("unchecked") ImmutableCollection<E> subList(long from, long to) {
     if (from == 0) return trim(size - to);
-    if (from == size) return new ImmutableDeque<E>(0, new ImmutableArray());
+    if (from == size) return new ImmutableArray<E>();
     if (to == size) return new ImmutableDeque<E>(from, this);
     return new ImmutableDeque<E>(from, trim(size - to));
   }
