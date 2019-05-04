@@ -93,8 +93,6 @@ public class ImmutableArray<E> extends ImmutableCollection<E> {
     return get((long)index);
   }
 
-  public String toString() { return "IA " + size; }
-
   public E get(long index) {
     long len = size;
     //System.out.println("" + index + "/" + len);
@@ -112,7 +110,8 @@ public class ImmutableArray<E> extends ImmutableCollection<E> {
     }
   }
 
-  private @SuppressWarnings("unchecked") E _get(int tribbles, long index, Object obj) {
+  @SuppressWarnings("unchecked")
+  private E _get(int tribbles, long index, Object obj) {
     Object array[] = (Object[])obj;
     long idx = index >>> (tribbles * 3);
     if (tribbles == 0) return (E)array[(int)idx];
@@ -464,7 +463,8 @@ public class ImmutableArray<E> extends ImmutableCollection<E> {
     return new ImmutableDeque<E>(0, this).unshiftAll(array);
   }
 
-  public @SuppressWarnings("unchecked") ImmutableCollection<E> unshiftAll(Collection<? super E> collection) {
+  @SuppressWarnings("unchecked")
+  public ImmutableCollection<E> unshiftAll(Collection<? super E> collection) {
     if (size + collection.size() <= 16) {
       // For small collections, the ImmutableArray is more memory efficient
       // than the ImmutableDeque.
@@ -486,13 +486,13 @@ public class ImmutableArray<E> extends ImmutableCollection<E> {
     return subList(1);
   }
 
-  public @SuppressWarnings("unchecked") ImmutableCollection<E> subList(long from) {
+  public ImmutableCollection<E> subList(long from) {
     if (from == 0) return this;
     if (from == size) return new ImmutableArray<E>();
     return new ImmutableDeque<E>(from, this);
   }
 
-  public @SuppressWarnings("unchecked") ImmutableCollection<E> subList(long from, long to) {
+  public ImmutableCollection<E> subList(long from, long to) {
     if (from == 0) return trim(size - to);
     if (from == size) return new ImmutableArray<E>();
     if (to == size) return new ImmutableDeque<E>(from, this);
@@ -608,7 +608,7 @@ public class ImmutableArray<E> extends ImmutableCollection<E> {
       return _remaining > 0;
     }
 
-    public @SuppressWarnings("unchecked") void forEachRemaining(Consumer<? super E> action) {
+    public void forEachRemaining(Consumer<? super E> action) {
       if (_remaining != 0) {
         ImmutableArray._forEachHelper(_powers, _index, action);
       }
@@ -616,7 +616,8 @@ public class ImmutableArray<E> extends ImmutableCollection<E> {
     }
 
     // Get next element in collection and advance by one.
-    public @SuppressWarnings("unchecked") E next() {
+    @SuppressWarnings("unchecked")
+    public E next() {
       // Short version of next, designed to be inlined.
       assert hasNext();
       if (_stack == null) _init();
@@ -633,7 +634,7 @@ public class ImmutableArray<E> extends ImmutableCollection<E> {
     }
 
     // Out of line version of _next for when we need to move to the next leaf.
-    private @SuppressWarnings("unchecked") void _next() {
+    private void _next() {
       // The easy way to implement this is just to use _index and something
       // like _get(), but this takes logn, giving an nlogn iteration over the
       // whole collection.  Instead we maintain a stack of arraylets at
@@ -692,7 +693,8 @@ public class ImmutableArray<E> extends ImmutableCollection<E> {
     }
 
     // Get previous element in collection and go back by one.
-    public @SuppressWarnings("unchecked") E previous() {
+    @SuppressWarnings("unchecked")
+    public E previous() {
       // Short version of previous, designed to be inlined.
       if (_stack == null) _init();
       assert hasPrevious();
@@ -709,7 +711,7 @@ public class ImmutableArray<E> extends ImmutableCollection<E> {
 
     // Out of line version of _previous for when we need to move to the previous
     // leaf.
-    private @SuppressWarnings("unchecked") void _previous() {
+    private void _previous() {
       // The easy way to implement this is just to use _index and something
       // like _get(), but this takes logn, giving an nlogn iteration over the
       // whole collection.  Instead we maintain a stack of arraylets at
@@ -783,7 +785,8 @@ public class ImmutableArray<E> extends ImmutableCollection<E> {
     }
   }
 
-  private static @SuppressWarnings("unchecked") void _forEachHelper(Object[] array, int depth, long startAt, long index, Consumer action) {
+  @SuppressWarnings("unchecked")
+  private static void _forEachHelper(Object[] array, int depth, long startAt, long index, Consumer action) {
     long end = index + array.length << (3 * depth);
     if (end < startAt) return;
     if (depth == 0) {

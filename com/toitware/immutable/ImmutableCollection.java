@@ -198,7 +198,7 @@ public abstract class ImmutableCollection<E> extends AbstractCollection<E> imple
    *  @param array The array to be prepended.
    *  @return A new ImmutableCollection that has the given array prepended.
    */
-  abstract public @SuppressWarnings("unchecked") ImmutableCollection<E> unshiftAll(E array[]);
+  abstract public ImmutableCollection<E> unshiftAll(E array[]);
 
   /** Create a new ImmutableCollection without the last element of this.
    *  Time taken is on average O(1).  GC safe in the sense that the discarded

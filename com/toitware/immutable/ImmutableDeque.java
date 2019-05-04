@@ -76,13 +76,12 @@ public class ImmutableDeque<E> extends ImmutableCollection<E> {
     return new ImmutableDeque<E>(extra_space - 1, new_backing.atPut(extra_space - 1, value));
   }
 
-  public @SuppressWarnings("unchecked") ImmutableDeque<E> unshiftAll(E array[]) {
+  public ImmutableDeque<E> unshiftAll(E array[]) {
     return unshiftAll(Arrays.asList(array));
   }
 
-  public String toString() { return "ID " + _offset + " cropped from " + _backing.size; }
-
-  public @SuppressWarnings("unchecked") ImmutableDeque<E> unshiftAll(Collection<? super E>collection) {
+  @SuppressWarnings("unchecked")
+  public ImmutableDeque<E> unshiftAll(Collection<? super E>collection) {
     if (collection.isEmpty()) return this;
     List<? super E> list = new ArrayList<>(collection);
     ListIterator<? super E> lit = list.listIterator(list.size());

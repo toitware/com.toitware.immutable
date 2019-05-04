@@ -92,7 +92,8 @@ public class ImmutableHashMap<K, V> {
     return getOrDefault(key, null);
   }
 
-  public @SuppressWarnings("unchecked") V getOrDefault(K key, V default_value) {
+  @SuppressWarnings("unchecked")
+  public V getOrDefault(K key, V default_value) {
     if (_index == null) return default_value;  // Empty map.
     int hash = key.hashCode();
     int slot = hash & _indexMask();
@@ -274,7 +275,8 @@ public class ImmutableHashMap<K, V> {
     return false;
   }
 
-  private @SuppressWarnings("unchecked") ImmutableHashMap<K, V> _rebuild_index() {
+  @SuppressWarnings("unchecked")
+  private ImmutableHashMap<K, V> _rebuild_index() {
     // Get a power of 2 1.7 to 3.4 times larger.
     int index_size = (int)((_size + 2) * 1.7);
     index_size |= index_size >> 1;
@@ -348,7 +350,8 @@ public class ImmutableHashMap<K, V> {
       return _index < _limit;
     }
 
-    public @SuppressWarnings("unchecked") K next() {
+    @SuppressWarnings("unchecked")
+    public K next() {
       while (true) {
         Object key = _backing_iterator.next();
         _backing_iterator.next();  // Consume value.
@@ -385,7 +388,8 @@ public class ImmutableHashMap<K, V> {
       return _index < _limit;
     }
 
-    public @SuppressWarnings("unchecked") V next() {
+    @SuppressWarnings("unchecked")
+    public V next() {
       while (true) {
         Object key = _backing_iterator.next();
         V value = (V)_backing_iterator.next();
@@ -422,7 +426,8 @@ public class ImmutableHashMap<K, V> {
       return _index < _limit;
     }
 
-    public @SuppressWarnings("unchecked") Map.Entry<K, V> next() {
+    @SuppressWarnings("unchecked")
+    public Map.Entry<K, V> next() {
       while (true) {
         Object key = _backing_iterator.next();
         V value = (V)_backing_iterator.next();
@@ -434,7 +439,8 @@ public class ImmutableHashMap<K, V> {
     }
   }
 
-  public @SuppressWarnings("unchecked") void forEach(BiConsumer<? super K, ? super V> action) {
+  @SuppressWarnings("unchecked")
+  public void forEach(BiConsumer<? super K, ? super V> action) {
     long count_box[] = new long[1];
     Object key_box[] = new Object[1];
     _backing.forEach((o)-> {
