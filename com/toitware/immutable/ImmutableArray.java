@@ -19,10 +19,16 @@ import java.util.function.Consumer;
 public class ImmutableArray<E> extends ImmutableCollection<E> {
   protected final long size;
 
+  // Branching factor.
+  static final int M = 16;
+  static final int MASK = 15;
+  static final int SHIFT = 4;
+  static final int SHIFTSHIFT = 2;  // Only used if SHIFT is a power of two.
+
   // A tree that is 199 large has three full trees of 64 each in the leftmost
   // _powers entry.  The next _powers entry has null, and the last points at an
-  // array with 7 elements.  If we add one element then the medium _powers
-  // entry gets a pointer to a 1-element array that points to the 8-entry leaf.
+  // array with M - 1 elements.  If we add one element then the medium _powers
+  // entry gets a pointer to a 1-element array that points to the M-entry leaf.
   private Object _powers[];
 
   /** Create an empty ImmutableArray. */
@@ -94,15 +100,20 @@ public class ImmutableArray<E> extends ImmutableCollection<E> {
   }
 
   private int _powerPosn(long index) {
-    // Multiplying by 43 and shifting down by 7 is just a way to divide by 3.
-    return ((63 - Long.numberOfLeadingZeros(index ^ size)) * 43) >> 7;
+    if (M == 8) {
+      // Multiplying by 43 and shifting down by 7 is just a way to divide by 3.
+      return ((63 - Long.numberOfLeadingZeros(index ^ size)) * 43) >> 7;
+    } else {
+      assert SHIFT == 1 << SHIFTSHIFT;
+      return (63 - Long.numberOfLeadingZeros(index ^ size)) >> SHIFTSHIFT;
+    }
   }
 
   public E get(long index) {
     long len = size;
     if (index < 0 || index >= len) throw new IndexOutOfBoundsException();
     int power_posn = _powerPosn(index);
-    long mask = (1 << ((power_posn + 1) * 3)) - 1;
+    long mask = (1 << ((power_posn + 1) * SHIFT)) - 1;
     return _get(power_posn, index & mask, _powers[power_posn]);
   }
 
@@ -110,8 +121,8 @@ public class ImmutableArray<E> extends ImmutableCollection<E> {
   private E _get(int tribbles, long index, Object obj) {
     Object array[] = (Object[])obj;
     if (tribbles == 0) return (E)array[(int)index];
-    long idx = index >>> (tribbles * 3);
-    return _get(tribbles - 1, index - (idx << (tribbles * 3)), array[(int)idx]);
+    long idx = index >>> (tribbles * SHIFT);
+    return _get(tribbles - 1, index - (idx << (tribbles * SHIFT)), array[(int)idx]);
   }
 
   static private Object[] _copyBut(Object old[], int index, Object value) {
@@ -218,7 +229,7 @@ public class ImmutableArray<E> extends ImmutableCollection<E> {
     long len = size;
     if (index < 0 || index >= len) throw new IndexOutOfBoundsException();
     int power_posn = _powerPosn(index);
-    long mask = (1 << ((power_posn + 1) * 3)) - 1;
+    long mask = (1 << ((power_posn + 1) * SHIFT)) - 1;
     return new ImmutableArray<E>(
         size,
         _copyBut(
@@ -228,14 +239,14 @@ public class ImmutableArray<E> extends ImmutableCollection<E> {
   }
 
   private Object[] _atPut(int tribbles, Object value, long index, Object array[]) {
-    int idx = (int)(index >>> (tribbles * 3));
-    if (array == null) array = new Object[8];
+    int idx = (int)(index >>> (tribbles * SHIFT));
+    if (array == null) array = new Object[M];
     return _copyBut(
         array,
         idx,
         tribbles == 0 ?
             value :
-            _atPut(tribbles - 1, value, index - (idx << (tribbles * 3)), (Object[])array[(int)idx]));
+            _atPut(tribbles - 1, value, index - (idx << (tribbles * SHIFT)), (Object[])array[(int)idx]));
   }
 
   protected ImmutableArray<E> _newWithSpaceOnLeft() {
@@ -247,9 +258,9 @@ public class ImmutableArray<E> extends ImmutableCollection<E> {
     Object arraylet[] = (Object[])_powers[shift];
     Object new_arraylet[] = new Object[arraylet.length + 1];
     for (int i = 0; i < arraylet.length; i++) new_arraylet[i + 1] = arraylet[i];
-    long extra_space = 1L << (shift * 3);
+    long extra_space = 1L << (shift * SHIFT);
     Object new_powers[];
-    if (arraylet.length == 7)  {
+    if (arraylet.length == M - 1)  {
       // We have to extend the powers array.
       new_powers = _copyAppend(_powers, 1, new Object[] { new_arraylet }, null);
       new_powers[shift] = null;
@@ -269,8 +280,8 @@ public class ImmutableArray<E> extends ImmutableCollection<E> {
     if (index < 0 || index >= len) throw new IndexOutOfBoundsException();
     int length_tribbles = _powers.length - 1;
     while (true) {
-      long top_index_digit = index >>> (3 * length_tribbles);
-      long top_length_digit = len >>> (3 * length_tribbles);
+      long top_index_digit = index >>> (SHIFT * length_tribbles);
+      long top_length_digit = len >>> (SHIFT * length_tribbles);
       if (top_index_digit < top_length_digit) {
         Object new_powers[] = new Object[length_tribbles + 1];
         for (int i = 0; i < length_tribbles; i++) new_powers[i] = _powers[i];
@@ -280,20 +291,20 @@ public class ImmutableArray<E> extends ImmutableCollection<E> {
             (Object[])_powers[length_tribbles]);
         return new ImmutableArray<E>(len, new_powers);
       }
-      index -= top_index_digit << (3 * length_tribbles);
-      len -= top_index_digit << (3 * length_tribbles);
+      index -= top_index_digit << (SHIFT * length_tribbles);
+      len -= top_index_digit << (SHIFT * length_tribbles);
       length_tribbles--;
     }
   }
 
   private Object[] _trimLeft(int tribbles, long index, Object array[]) {
-    long idx = index >>> (tribbles * 3);
+    long idx = index >>> (tribbles * SHIFT);
     return _nullToTheLeft(
         array,
         idx,
         tribbles == 0 ?
             array[(int)idx] :
-            _trimLeft(tribbles - 1, index - (idx << (tribbles * 3)), (Object[])array[(int)idx]));
+            _trimLeft(tribbles - 1, index - (idx << (tribbles * SHIFT)), (Object[])array[(int)idx]));
   }
 
   public ImmutableArray<E> push(E value) {
@@ -327,11 +338,11 @@ public class ImmutableArray<E> extends ImmutableCollection<E> {
   private static Object[] _freshPowers(Object old_powers[], long additions) {
     int powers_size;
     if (old_powers == null) {
-      long po8 = 8;
+      long poM = M;
       powers_size = 1;
-      while (additions >= po8) {
+      while (additions >= poM) {
         powers_size++;
-        po8 <<= 3;
+        poM <<= SHIFT;
       }
     } else {
       powers_size = old_powers.length;
@@ -346,15 +357,15 @@ public class ImmutableArray<E> extends ImmutableCollection<E> {
   private static Object[] _pushHelper(Object old_powers[], long size, Collection collection, long remaining) {
     Object[] powers = _freshPowers(old_powers, remaining);
     Iterator it = collection.iterator();
-    int mod = (int)(size & 7);
+    int mod = (int)(size & MASK);
     if (mod != 0) {
-      int add = 8 - mod > remaining ? (int)remaining : 8 - mod;
+      int add = M - mod > remaining ? (int)remaining : M - mod;
       Object old[] = (Object[])powers[0];
       int old_size = old == null ? 0 : old.length;
       Object arraylet[] = new Object[old_size + add];
       for (int i = 0; i < old_size; i++) arraylet[i] = old[i];
       for (int i = 0; i < add; i++) arraylet[old_size + i] = it.next();
-      if (arraylet.length == 8) {
+      if (arraylet.length == M) {
         powers[0] = null;
         powers = _insertSubtree(powers, arraylet, 1);
       } else {
@@ -364,12 +375,12 @@ public class ImmutableArray<E> extends ImmutableCollection<E> {
       size += add;
       if (remaining == 0) return powers;
     }
-    // We have a power of 8 size.  Try to push 8 at a time, or 8*8, or 8*8*8...
-    long at_a_time = 8;
+    // We have a power of M size.  Try to push M at a time, or M*M, or M*M*M...
+    long at_a_time = M;
     int shift = 1;
-    while (at_a_time >= 8) {
+    while (at_a_time >= M) {
       if (at_a_time <= remaining) {
-        long next_aat = at_a_time << 3;
+        long next_aat = at_a_time << SHIFT;
         if (next_aat <= remaining && ((size & (next_aat - 1)) == 0)) {
           at_a_time = next_aat;
           shift++;
@@ -380,12 +391,12 @@ public class ImmutableArray<E> extends ImmutableCollection<E> {
           size += at_a_time;
         }
       } else {
-        at_a_time >>= 3;
+        at_a_time >>= SHIFT;
         shift--;
       }
     }
     if (remaining > 0) {
-      assert remaining < 8;
+      assert remaining < M;
       Object arraylet[] = new Object[(int)remaining];
       for (int i = 0; i < remaining; i++) arraylet[i] = it.next();
       powers[0] = arraylet;
@@ -394,12 +405,12 @@ public class ImmutableArray<E> extends ImmutableCollection<E> {
   }
 
   private static Object[] _createSubtree(long at_a_time, Iterator it) {
-    Object arraylet[] = new Object[8];
-    for (int i = 0; i < 8; i++) {
-      if (at_a_time == 8) {
+    Object arraylet[] = new Object[M];
+    for (int i = 0; i < M; i++) {
+      if (at_a_time == M) {
         arraylet[i] = it.next();
       } else {
-        arraylet[i] = _createSubtree(at_a_time >> 3, it);
+        arraylet[i] = _createSubtree(at_a_time >> SHIFT, it);
       }
     }
     return arraylet;
@@ -408,7 +419,7 @@ public class ImmutableArray<E> extends ImmutableCollection<E> {
   private ImmutableArray<E> _push(int count, Object value1, Object value2) {
     Object powers[] = _freshPowers(_powers, count);
     Object tail[] = _copyAppend((Object[])powers[0], count, value1, value2);
-    if (tail.length == 8) {
+    if (tail.length == M) {
       powers[0] = null;
       powers = _insertSubtree(powers, tail, 1);
     } else {
@@ -422,7 +433,7 @@ public class ImmutableArray<E> extends ImmutableCollection<E> {
     for (int i = shift; i < powers.length; i++) {
       Object new_value[] = _copyAppend((Object[])powers[i], 1, value, null);
       powers[i] = new_value;
-      if (new_value.length != 8) return powers;
+      if (new_value.length != M) return powers;
       value = powers[i];
       powers[i] = null;
     }
@@ -502,8 +513,8 @@ public class ImmutableArray<E> extends ImmutableCollection<E> {
     Object[] borrow = null;
     // One digit at a time, from most significant to least significant.
     for (int i = d - 1; i >= 0; i--) {
-      int old_digit = (int)((size >> (i * 3)) & 7);
-      int new_digit = (int)((new_size >> (i * 3)) & 7);
+      int old_digit = (int)((size >> (i * SHIFT)) & MASK);
+      int new_digit = (int)((new_size >> (i * SHIFT)) & MASK);
       Object input[] = (Object[])_powers[i];
       int borrow_len = borrow == null ? 0 : borrow.length;
       int input_len = borrow_len + (input == null ? 0 : input.length);
@@ -531,18 +542,6 @@ public class ImmutableArray<E> extends ImmutableCollection<E> {
       }
     }
     return new ImmutableArray<E>(new_size, new_powers);
-  }
-
-  static private boolean _isPowerOf8(long i) {
-    // Quick check for power of 2.
-    if ((i & (i - 1)) != 0) return false;
-    // If it's a power of two we have to check for a power of 8.
-    long test = 8;
-    while (test > 0 && test <= i) {
-      if (test == i) return true;
-      test <<= 3;  // Can wrap to negative at 2**63 which is -2**63.
-    }
-    return false;
   }
 
   protected class ImmutableArrayIterator<E> implements Iterator<E> {
@@ -583,7 +582,7 @@ public class ImmutableArray<E> extends ImmutableCollection<E> {
         } else {
           for (_powers_posn = _powers.length - 1; _powers_posn >= 0; _powers_posn--) {
             if (_powers[_powers_posn] == null) continue;
-            long at_this_level = ((Object[])(_powers[_powers_posn])).length << (3 * _powers_posn);
+            long at_this_level = ((Object[])(_powers[_powers_posn])).length << (SHIFT * _powers_posn);
             if (starting < at_this_level) break;
             starting -= at_this_level;
           }
@@ -610,7 +609,7 @@ public class ImmutableArray<E> extends ImmutableCollection<E> {
       // Short version of next, designed to be inlined.
       assert hasNext();
       if (_stack == null) _init();
-      int arraylet_posn = (int)(_index & 7);
+      int arraylet_posn = (int)(_index & MASK);
       Object bottom_arraylet[] = _stack[_powers_posn];
       E result = (E)bottom_arraylet[arraylet_posn];
       _remaining--;
@@ -633,12 +632,12 @@ public class ImmutableArray<E> extends ImmutableCollection<E> {
       int shift = 0;
       for (int idx = _powers_posn; idx >= 0; idx--) {
         Object[] arraylet = (Object[])(_stack[idx]);
-        int arraylet_posn = (int)((_index >> shift) & 7);
+        int arraylet_posn = (int)((_index >> shift) & MASK);
         if (arraylet_posn != 0 && arraylet_posn != arraylet.length) {
           _populate_stack(shift, idx, arraylet);
           return;
         }
-        shift += 3;
+        shift += SHIFT;
       }
       // Need to move to next position in _powers array.
       int powers_posn = _powers_posn;
@@ -653,16 +652,16 @@ public class ImmutableArray<E> extends ImmutableCollection<E> {
     protected void _populate_stack() {
       Object top[] = (Object[])_powers[_powers_posn];
       _stack[0] = top;
-      _populate_stack(_powers_posn * 3, 0, top);
+      _populate_stack(_powers_posn * SHIFT, 0, top);
     }
 
     protected void _populate_stack(int shift, int idx, Object arraylet[]) {
       while (idx < _powers_posn) {
-        int arraylet_posn = (int)((_index >> shift) & 7);
+        int arraylet_posn = (int)((_index >> shift) & MASK);
         idx++;
         arraylet = (Object[])arraylet[arraylet_posn];
         _stack[idx] = arraylet;
-        shift -= 3;
+        shift -= SHIFT;
       }
     }
   }
@@ -687,12 +686,12 @@ public class ImmutableArray<E> extends ImmutableCollection<E> {
       // Short version of previous, designed to be inlined.
       if (_stack == null) _init();
       assert hasPrevious();
-      int arraylet_posn = (int)(_index & 7);
+      int arraylet_posn = (int)(_index & MASK);
       _index--;
       _remaining++;
       if (arraylet_posn == 0) {
         _previous();
-        arraylet_posn = 8;
+        arraylet_posn = M;
       }
       arraylet_posn--;
       return (E)_stack[_powers_posn][arraylet_posn];
@@ -710,12 +709,12 @@ public class ImmutableArray<E> extends ImmutableCollection<E> {
       int shift = 0;
       for (int idx = _powers_posn; idx >= 0; idx--) {
         Object[] arraylet = (Object[])(_stack[idx]);
-        int arraylet_posn = (int)((_index >> shift) & 7);
-        if (arraylet_posn != 7) {
+        int arraylet_posn = (int)((_index >> shift) & MASK);
+        if (arraylet_posn != M - 1) {
           _populate_stack(shift, idx, arraylet);
           return;
         }
-        shift += 3;
+        shift += SHIFT;
       }
       // Need to move to previous position in _powers array.
       int powers_posn = _powers_posn;
@@ -769,23 +768,23 @@ public class ImmutableArray<E> extends ImmutableCollection<E> {
       if (powers[p] != null) {
         Object[] power = (Object[])powers[p];
         _forEachHelper(power, p, startAt, index, action);
-        index += power.length << (3 * p);
+        index += power.length << (SHIFT * p);
       }
     }
   }
 
   @SuppressWarnings("unchecked")
   private static void _forEachHelper(Object[] array, int depth, long startAt, long index, Consumer action) {
-    long end = index + array.length << (3 * depth);
+    long end = index + array.length << (SHIFT * depth);
     if (end < startAt) return;
     if (depth == 0) {
-      int start = startAt <= index ? 0 : (int)(startAt & 7);
+      int start = startAt <= index ? 0 : (int)(startAt & MASK);
       for (int i = start; i < array.length; i++) {
         action.accept(array[i]);
       }
     } else {
       for (int i = 0; i < array.length; i++) {
-        long index_after = index + (1 << (3 * depth));
+        long index_after = index + (1 << (SHIFT * depth));
         if (startAt < index_after) {
           _forEachHelper((Object[])array[i], depth - 1, startAt, index, action);
         }
