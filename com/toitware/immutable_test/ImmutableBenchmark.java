@@ -18,6 +18,9 @@ abstract class ImmutableBenchmark {
     new ForInBench().runs();
     new ForEachBench().runs();
     new IntLoopBench().runs();
+    new ForInDequeBench().runs();
+    new ForEachDequeBench().runs();
+    new IntLoopDequeBench().runs();
     new ArrayListForInBench().runs();
     new ArrayListForEachBench().runs();
     new ArrayListIntLoopBench().runs();
@@ -27,6 +30,9 @@ abstract class ImmutableBenchmark {
     new ArrayListForInBench().runs();
     new ArrayListForEachBench().runs();
     new ArrayListIntLoopBench().runs();
+    new ForInDequeBench().runs();
+    new ForEachDequeBench().runs();
+    new IntLoopDequeBench().runs();
   }
 
   void runs() {
@@ -55,7 +61,7 @@ abstract class ImmutableBenchmark {
   private static abstract class IterationBench extends ImmutableBenchmark {
     private long _sum;
     public long sum() { return _sum; }
-    protected ImmutableArray<ImmutableArray<Integer>> _top;
+    protected ImmutableArray<ImmutableCollection<Integer>> _top;
 
     public void setup() {
       Random random = new Random(1034210342);
@@ -72,6 +78,12 @@ abstract class ImmutableBenchmark {
         _sum = sum;
       }
     }
+
+    protected void dequeify() {
+      for (int i = 0; i < _top.size(); i++) {
+        _top = _top.atPut(i, _top.get(i).unshift(0));
+      }
+    }
   }
 
   private static class ForInBench extends IterationBench {
@@ -84,12 +96,21 @@ abstract class ImmutableBenchmark {
 
     protected long sumForIn() {
       long sum = 0;
-      for (ImmutableArray<Integer> array : _top) {
+      for (ImmutableCollection<Integer> array : _top) {
         for (int x : array) {
           sum += x;
         }
       }
       return sum;
+    }
+  }
+
+  private static class ForInDequeBench extends ForInBench {
+    public String name() { return "ForIn-Dq  "; }
+
+    public void setup() {
+      super.setup();
+      dequeify();
     }
   }
 
@@ -114,6 +135,15 @@ abstract class ImmutableBenchmark {
     }
   }
 
+  private static class ForEachDequeBench extends ForEachBench {
+    public String name() { return "ForEach-Dq"; }
+
+    public void setup() {
+      super.setup();
+      dequeify();
+    }
+  }
+
   private static class IntLoopBench extends IterationBench {
     public String name() { return "IntLoop   "; }
 
@@ -125,12 +155,21 @@ abstract class ImmutableBenchmark {
     protected long sumIntLoop() {
       long sum = 0;
       for (int i = 0; i < _top.size(); i++) {
-        ImmutableArray<Integer> a = _top.get(i);
+        ImmutableCollection<Integer> a = _top.get(i);
         for (int j = 0; j < a.size(); j++) {
           sum += a.get(j);
         }
       }
       return sum;
+    }
+  }
+
+  private static class IntLoopDequeBench extends IntLoopBench {
+    public String name() { return "IntLoop-Dq"; }
+
+    public void setup() {
+      super.setup();
+      dequeify();
     }
   }
 
@@ -195,6 +234,7 @@ abstract class ImmutableBenchmark {
       return s;
     }
   }
+
   private static class ArrayListIntLoopBench extends ArrayListIterationBench {
     public String name() { return "IntLoop-AL"; }
 
