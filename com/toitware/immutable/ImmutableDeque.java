@@ -94,12 +94,12 @@ public class ImmutableDeque<E> extends ImmutableCollection<E> {
 
   public int indexOf(E object) {
     long result = _backing.indexOf(object, _offset);
-    return result == -1 ? -1 : _longTruncator(result - _offset);
+    return result == -1 ? -1 : ImmutableCollection._longTruncator(result - _offset);
   }
 
   public int lastIndexOf(E object) {
     long result = _backing.lastIndexOf(object, _offset);
-    return result == -1 ? -1 : _longTruncator(result - _offset);
+    return result == -1 ? -1 : ImmutableCollection._longTruncator(result - _offset);
   }
 
   public Object clone() {

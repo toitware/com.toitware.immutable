@@ -5,12 +5,13 @@
 package com.toitware.immutable;
 
 import com.toitware.immutable.ImmutableCollection;
+import com.toitware.immutable.RebuildIterator;
 import java.util.AbstractCollection;
 import java.util.Arrays;
 import java.util.Collection;
-import java.util.function.Consumer;
 import java.util.Iterator;
 import java.util.ListIterator;
+import java.util.function.Consumer;
 
 /** A concrete implementation of ImmutableCollection.
  *  @see ImmutableCollection
@@ -417,6 +418,7 @@ public class ImmutableArray<E> extends ImmutableCollection<E> {
   }
 
   static private Object[] _insertSubtree(Object powers[], Object value, int shift) {
+    if (powers.length < shift + 1) powers = Arrays.copyOf(powers, shift + 1);
     for (int i = shift; i < powers.length; i++) {
       Object new_value[] = _copyAppend((Object[])powers[i], 1, value, null);
       powers[i] = new_value;

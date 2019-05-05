@@ -6,9 +6,12 @@ package com.toitware.immutable;
 
 import java.util.AbstractCollection;
 import java.util.Collection;
-import java.util.function.Consumer;
+import java.util.HashSet;
 import java.util.Iterator;
 import java.util.ListIterator;
+import java.util.Set;
+import java.util.function.Consumer;
+import java.util.function.Predicate;
 
 /** An immutable (fully persistent) list with O(log size) access to any
  *  element.  A new list that differs at one position from this
@@ -31,7 +34,8 @@ import java.util.ListIterator;
  *
  *  Methods that modify ArrayList do not have similarly named methods in this
  *  class.  This is to remind you that you need to use the return value, which
- *  is a new ImmutableCollection.<p>
+ *  is a new ImmutableCollection.  Thus, set is renamed to atPut, remove* is
+ *  replaced with filter*, and retainAll is replaced with selectAll.<p>
  *
  *  This abstract class defines the interface, but new instances will normally
  *  be created by the constructors of ImmutableArray.  If you only append or
@@ -59,14 +63,16 @@ public abstract class ImmutableCollection<E> extends AbstractCollection<E> imple
   /** Create an iterator over the entire ImmutableCollection.  Since the
    *  ImmutableCollection cannot be mutated, there is no issue of what happens
    *  if the underlying collection is mutated during iteration.
-   *  @return A fresh iterator that does not implement remove().
+   *  @return A fresh iterator that does not implement remove() and set(), but
+   *      see also rebuildIterator().
    */
   abstract public Iterator<E> iterator();
 
   /** Create a list iterator over the entire ImmutableCollection.  Since the
    *  ImmutableCollection cannot be mutated, there is no issue of what happens
    *  if the underlying collection is mutated during iteration.
-   *  @return A fresh list iterator that does not implement remove().
+   *  @return A fresh list iterator that does not implement remove() and set(),
+   *      but see also rebuildIterator().
    */
   abstract public ListIterator<E> listIterator();
 
@@ -75,7 +81,8 @@ public abstract class ImmutableCollection<E> extends AbstractCollection<E> imple
    *  if the underlying collection is mutated during iteration.
    *  @param index The starting point, which must be between 0 and the size,
    *      inclusive().
-   *  @return A fresh list iterator that does not implement remove().
+   *  @return A fresh list iterator that does not implement remove() and set(),
+   *      but see also rebuildIterator().
    */
   abstract public ListIterator<E> listIterator(int index);
 
@@ -84,33 +91,32 @@ public abstract class ImmutableCollection<E> extends AbstractCollection<E> imple
    *  if the underlying collection is mutated during iteration.
    *  @param index The starting point, which must be between 0 and the size,
    *      inclusive().
-   *  @return A fresh list iterator that does not implement remove().
+   *  @return A fresh list iterator that does not implement remove() and set(),
+   *      but see also rebuildIterator().
    */
   abstract public ListIterator<E> listIterator(long index);
 
   /** Get an arbitrary element of the ImmutableCollection. Takes an average
-   *  time of O(log size).
+   *  time of O(log(size - index)).
    *  @param index The index of the required element.
    *  @return The element.
    */
   abstract public E get(int index);
 
-  /** Get an arbitrary element of the ImmutableCollection in an average time of
-   *  O(log size).
+  /** Get an arbitrary element of the ImmutableCollection. Takes an average
+   *  time of O(log(size - index)).
    *  @param index The index of the required element.
    *  @return The element.
    */
   abstract public E get(long index);
 
   /** Find the first element that is equal to the needle, using equals().
-   *  Unlike the method of the same name on ArrayList, this one returns long.
    *  @param needle The element to be found
    *  @return The index of the found element, or -1 if the needle is not found.
    */
   abstract public int indexOf(E needle);
 
   /** Find the last element that is equal to the needle, using equals().
-   *  Unlike the method of the same name on ArrayList, this one returns long.
    *  @param needle The element to be found
    *  @return The index of the found element, or -1 if the needle is not found.
    */
@@ -241,7 +247,111 @@ public abstract class ImmutableCollection<E> extends AbstractCollection<E> imple
    */
   abstract public ImmutableCollection<E> subList(long from, long to);
 
-  protected int _longTruncator(long input) {
+  public RebuildIterator<E> rebuildIterator() {
+    return new RebuildIterator<E>(this);
+  }
+
+  /** Remove a numbered element from the collection.  A replacement for
+   *  remove(int), this method returns a new collection without the requested
+   *  element.  Takes O(size) time.
+   *  @param index The index of the element to be removed.
+   *  @return A new immutable collection without the element.
+   */
+  public ImmutableCollection<E> removeAt(int index) {
+    if (index < 0 || index > longSize()) throw new IndexOutOfBoundsException();
+    if (index == longSize() - 1) return trim();
+    if (index == 0) return shift();
+    return subList(0, index).pushAll(subList(index + 1, size()));
+  }
+
+  /** Remove a given element from the collection.  A replacement for
+   *  remove(E), this method returns a new collection without the requested
+   *  element.  Takes O(size) time.
+   *  @param element The element to be removed.  Equality is tested with equals().
+   *  @return A new immutable collection without the element.
+   */
+  public ImmutableCollection<E> filter(E element) {
+    if (longSize() == 0) return this;
+    E first = get(0);
+    int found = indexOf(element);
+    if (found == -1) return this;
+    return removeAt(found);
+  }
+
+  /** Remove all of this collections elements that are also in the given
+   *  collection.  A replacement for removeAll(), this method returns a new
+   *  collection without the requested elements.  Takes O(size) time, assuming
+   *  a Set can test for membership in O(1) time.
+   *  @param collection The elements to be removed.  Equality is tested with
+   *      equals().
+   *  @return A new immutable collection without the elements.
+   */
+  @SuppressWarnings("unchecked")
+  public ImmutableCollection<E> filterAll(Collection<?> collection) {
+    if (longSize() == 0 || collection.size() == 0) return this;
+    if (!(collection instanceof Set) && collection.size() * longSize() > 100) {
+      collection = new HashSet<Object>(collection);
+    }
+    Collection<?> finalCollection = collection;
+
+    RebuildIterator<E> it = rebuildIterator();
+    it.forEachRemaining((x)-> {
+      if (finalCollection.contains(x)) {
+        it.remove();
+      }
+    });
+    if (it.size() == size()) return this;
+    return it.build();
+  }
+
+  /** Remove all of this collections elements that fulfill some predicate.
+   *  A replacement for removeIf(), this method returns a new collection
+   *  without the requested elements.  Takes O(size) time, assuming the
+   *  predicate runs in O(1) time.
+   *  @param predicate Should return true for elements that should be removed.
+   *  @return A new immutable collection without the elements.
+   */
+  public ImmutableCollection<E> filterIf(Predicate<? super E> predicate) {
+    if (longSize() == 0) return this;
+
+    RebuildIterator<E> it = rebuildIterator();
+    it.forEachRemaining((x)-> {
+      if (predicate.test(x)) {
+        it.remove();
+      }
+    });
+    if (it.size() == size()) return this;
+    return it.build();
+  }
+
+  /** Select only all of this collections elements that are also in the given
+   *  collection.  A replacement for retainAll(), this method returns a new
+   *  collection with only the requested elements.  Takes O(size) time,
+   *  assuming a Set can test for membership in O(1) time.
+   *  @param collection The elements to be retained.  Equality is tested with
+   *      equals().
+   *  @return A new immutable collection.
+   */
+  @SuppressWarnings("unchecked")
+  public ImmutableCollection<E> selectAll(Collection<?> collection) {
+    if (longSize() == 0) return this;
+    if (collection.size() == 0) return new ImmutableArray<E>();
+    if (!(collection instanceof Set) && collection.size() * longSize() > 100) {
+      collection = new HashSet<Object>(collection);
+    }
+    Collection<?> finalCollection = collection;
+
+    RebuildIterator<E> it = rebuildIterator();
+    it.forEachRemaining((x)-> {
+      if (!finalCollection.contains(x)) {
+        it.remove();
+      }
+    });
+    if (it.size() == size()) return this;
+    return it.build();
+  }
+
+  protected static int _longTruncator(long input) {
     if (input > Integer.MAX_VALUE) return Integer.MAX_VALUE;
     return (int)input;
   }

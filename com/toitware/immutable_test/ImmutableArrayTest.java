@@ -6,6 +6,7 @@ package com.toitware.immutable_test;
 import com.toitware.immutable.ImmutableArray;
 import com.toitware.immutable.ImmutableCollection;
 import com.toitware.immutable.ImmutableDeque;
+import com.toitware.immutable.RebuildIterator;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Iterator;
@@ -47,7 +48,7 @@ class ImmutableArrayTest {
   }
 
   private static void random_test2() {
-    final int ITERATIONS = 1000;
+    final int ITERATIONS = 2000;
     final int ARRAYS = 20;
     ArrayList<ArrayList<Integer>> control = new ArrayList<ArrayList<Integer>>();
     ImmutableArray<ImmutableCollection<Integer>> arrays = new ImmutableArray<>();
@@ -61,7 +62,7 @@ class ImmutableArrayTest {
       int src = random.nextInt(ARRAYS);
       int dest = random.nextInt(ARRAYS);
       int amount = random.nextInt(4) + 1;
-      switch (random.nextInt(7)) {
+      switch (random.nextInt(10)) {
         case 0: {
           // Push.
           //System.out.println("Push " + amount + " on " + src + " and store to " + dest);
@@ -133,15 +134,17 @@ class ImmutableArrayTest {
             //System.out.println("Concat " + src + " onto " + dest);
             control.get(dest).addAll(control.get(src));
             if (random.nextBoolean()) {
+              //System.out.println("  (use pushAll directly)");
               arrays = arrays.atPut(dest, arrays.get(dest).pushAll(arrays.get(src)));
             } else {
+              //System.out.println("  (use pushAll of an array)");
               ImmutableCollection<Integer> source = arrays.get(src);
               Integer as_array[] = new Integer[source.size()];
               source.toArray(as_array);
               arrays = arrays.atPut(dest, arrays.get(dest).pushAll(as_array));
             }
-            break;
           }
+          break;
         }
         case 4: {
           int len = control.get(src).size();
@@ -164,6 +167,7 @@ class ImmutableArrayTest {
             control.set(dest, new ArrayList<Integer>(control.get(src).subList(fromStart, len - fromEnd)));
             arrays = arrays.atPut(dest, arrays.get(src).subList(fromStart, len - fromEnd));
           }
+          break;
         }
         case 6: {
           if (control.get(dest).size() > 897) {
@@ -186,8 +190,93 @@ class ImmutableArrayTest {
               source.toArray(as_array);
               arrays = arrays.atPut(dest, arrays.get(dest).unshiftAll(as_array));
             }
-            break;
           }
+          break;
+        }
+        case 7: {
+          int preferredLastBit = random.nextInt(2);
+          //System.out.println("Filter from " + src + " onto " + dest + " keeping only the ones that end with " + preferredLastBit);
+          arrays = arrays.atPut(dest, arrays.get(src).filterIf(
+                (x) -> ((x & 1) != preferredLastBit)));
+          control.set(dest, new ArrayList<Integer>(control.get(src)));
+          control.get(dest).removeIf(
+                (x) -> ((x & 1) != preferredLastBit));
+
+          for (int e : arrays.get(dest)) {
+            assert (e & 1) == preferredLastBit;
+          }
+          break;
+        }
+        case 8: {
+          ArrayList<Integer> source_copy = new ArrayList<Integer>(control.get(src));
+          if (random.nextBoolean()) {
+            //System.out.println("Remove " + src + " from " + dest);
+            arrays = arrays.atPut(dest, arrays.get(dest).filterAll(arrays.get(src)));
+            control.get(dest).removeAll(source_copy);
+          } else {
+            //System.out.println("Retain " + src + " from " + dest);
+            arrays = arrays.atPut(dest, arrays.get(dest).selectAll(arrays.get(src)));
+            control.get(dest).retainAll(source_copy);
+          }
+          break;
+        }
+        case 9: {
+          //System.out.println("Map from " + src + " onto " + dest);
+          RebuildIterator<Integer> it = arrays.get(src).rebuildIterator();
+          ArrayList<ArrayList<Integer>> magics = new ArrayList<>();
+          magics.add(new ArrayList<Integer>());
+          ArrayList<Integer> magic1 = new ArrayList<>();
+          magic1.add(7);
+          magics.add(magic1);
+          ArrayList<Integer> magic2 = new ArrayList<>();
+          magic2.add(7);
+          magic2.add(103);
+          magics.add(magic2);
+          ArrayList<Integer> magic3 = new ArrayList<>();
+          magic3.add(7);
+          magic3.add(103);
+          magic3.add(3001);
+          magics.add(magic3);
+
+          while (it.hasNext()) {
+            int x = it.next();
+            if ((x & 3) == 0) {
+              it.set(x + 1);  // Replace *00 with different value.
+            } else if ((x & 3) == 1) {
+              it.insertAll(magics.get((x >> 2) & 3));
+            } else if ((x & 3) == 2) {
+              it.remove();  // Don't include *10.
+            } else if ((x & 3) == 3) {
+              it.insert(42);  // Put 42 after each *11.
+            }
+          }
+          arrays = arrays.atPut(dest, it.build());
+
+          ArrayList<Integer> n = new ArrayList<>();
+          for (int i : control.get(src)) {
+            switch (i & 3) {
+              case 0:
+                n.add(i + 1);
+                break;
+              case 1:
+                n.add(i);
+                int hi = ((i >> 2) & 3);
+                for (int x : magics.get(hi)) n.add(x);
+                break;
+              case 2:
+                break;
+              case 3:
+                n.add(i);
+                n.add(42);
+                break;
+            }
+          }
+          control.set(dest, n);
+
+          for (int e : arrays.get(dest)) {
+            assert (e & 3) != 0;
+          }
+          break;
         }
       }
       for (int i = 0; i < ARRAYS; i++) {
@@ -289,6 +378,12 @@ class ImmutableArrayTest {
     assert(two_a.get(1) == 103);
     assert(two_b.get(1) == 7);
 
+    ft_test(two_a.filter(103), ft.filter(42));
+    ft_test(two_b.filter(7), ft.filter(42));
+    ft_test(ft.filter(7), ft.filter(42));
+    ft_test(two_a.removeAt(1), ft.removeAt(0));
+    ft_test(two_b.removeAt(1), ft.removeAt(0));
+
     ImmutableCollection<Integer> love = two_a.unshift(3000);
     ImmutableCollection<Integer> futures = two_b.unshift(14000605);
 
@@ -341,6 +436,8 @@ class ImmutableArrayTest {
     assert(!lit.hasNext());
     assert(lit.nextIndex() == 10);
     assert(lit.previousIndex() == 9);
+
+    ImmutableCollection<Integer> odds = p.filterIf((x) -> ((x & 1) == 1));
 
     for (int i = 0; i <= 10; i++) {
       ImmutableCollection trimmed = p.trim(i);
