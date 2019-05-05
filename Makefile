@@ -3,6 +3,8 @@
 # found in the LICENSE file.
 
 all:
+	CLASSPATH=. javac -Xlint:unchecked com/toitware/immutable_test/ImmutableMemoryUse.java
+	CLASSPATH=. java -XX:+UseCompressedOops com.toitware.immutable_test.ImmutableMemoryUse
 	CLASSPATH=. javac -Xlint:unchecked com/toitware/immutable_test/ImmutableBenchmark.java
 	CLASSPATH=. java com.toitware.immutable_test.ImmutableBenchmark
 	CLASSPATH=. javac -Xlint:unchecked com/toitware/immutable_test/ImmutableArrayTest.java
