@@ -100,7 +100,7 @@ class ImmutableArrayTest {
           for ( ; i < amount && control.get(dest).size() != 0; i++) {
             control.get(dest).remove(0);
           }
-          //System.out.println("Trim " + i + " from " + src + " and store to " + dest);
+          //System.out.println("Shift " + i + " from " + src + " and store to " + dest);
           ImmutableCollection<Integer> old = arrays.get(src);
           arrays = arrays.atPut(dest, old.subList(i));
           // Test forEachRemaining.
@@ -131,7 +131,7 @@ class ImmutableArrayTest {
             arrays = arrays.atPut(dest, new ImmutableArray<Integer>());
           } else {
             // Concat.
-            //System.out.println("Concat " + src + " onto " + dest);
+            //System.out.println("Concat " + src + " (" + arrays.get(src) + ") onto " + dest + " (" + arrays.get(dest) + ")");
             control.get(dest).addAll(control.get(src));
             if (random.nextBoolean()) {
               //System.out.println("  (use pushAll directly)");
@@ -151,7 +151,6 @@ class ImmutableArrayTest {
           if (len != 0) {
             int offset = random.nextInt(len);
             int value = random.nextInt(100);
-            //System.out.println("Len " + len + ", Set " + offset + " to " + value + " from " + src + " to " + dest);
             arrays = arrays.atPut(dest, arrays.get(src).atPut(offset, value));
             control.set(dest, new ArrayList<Integer>(control.get(src)));
             control.get(dest).set(offset, value);
@@ -176,15 +175,17 @@ class ImmutableArrayTest {
             arrays = arrays.atPut(dest, new ImmutableArray<Integer>());
           } else {
             // Prepend.
-            //System.out.println("Prepend " + src + " onto " + dest);
+            //System.out.println("Prepend " + src + " (" + arrays.get(src) + ") onto " + dest + " (" + arrays.get(dest) + ")");
             ArrayList<Integer> old_dest = control.get(dest);
             ArrayList<Integer> old_source = control.get(src);
             control.set(dest, new ArrayList<Integer>());
             control.get(dest).addAll(old_source);
             control.get(dest).addAll(old_dest);
             if (random.nextBoolean()) {
+              //System.out.println("  (Use unshiftAll of a collection)");
               arrays = arrays.atPut(dest, arrays.get(dest).unshiftAll(arrays.get(src)));
             } else {
+              //System.out.println("  (Use unshiftAll of an array)");
               ImmutableCollection<Integer> source = arrays.get(src);
               Integer as_array[] = new Integer[source.size()];
               source.toArray(as_array);
