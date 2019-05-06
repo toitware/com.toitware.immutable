@@ -194,7 +194,7 @@ public abstract class ImmutableCollection<E> extends AbstractCollection<E> imple
    *  @param collection The collection to be prepended.
    *  @return A new ImmutableCollection that has the given collection prepended.
    */
-  abstract public ImmutableCollection<E> unshiftAll(Collection<? super E>collection);
+  abstract public ImmutableCollection<E> unshiftAll(Collection<? extends E>collection);
 
   /** Push an array of values on the start of the collection.  Does not
    *  reverse the order, ie at the end the unshifted elements have the same
@@ -281,7 +281,7 @@ public abstract class ImmutableCollection<E> extends AbstractCollection<E> imple
   /** Remove all of this collections elements that are also in the given
    *  collection.  A replacement for removeAll(), this method returns a new
    *  collection without the requested elements.  Takes O(size) time, assuming
-   *  a Set can test for membership in O(1) time.
+   *  the collection is a Set that can test for membership in O(1) time.
    *  @param collection The elements to be removed.  Equality is tested with
    *      equals().
    *  @return A new immutable collection without the elements.
@@ -289,14 +289,10 @@ public abstract class ImmutableCollection<E> extends AbstractCollection<E> imple
   @SuppressWarnings("unchecked")
   public ImmutableCollection<E> filterAll(Collection<?> collection) {
     if (longSize() == 0 || collection.size() == 0) return this;
-    if (!(collection instanceof Set) && collection.size() * longSize() > 100) {
-      collection = new HashSet<Object>(collection);
-    }
-    Collection<?> finalCollection = collection;
 
     RebuildIterator<E> it = rebuildIterator();
     it.forEachRemaining((x)-> {
-      if (finalCollection.contains(x)) {
+      if (collection.contains(x)) {
         it.remove();
       }
     });
@@ -327,7 +323,8 @@ public abstract class ImmutableCollection<E> extends AbstractCollection<E> imple
   /** Select only all of this collections elements that are also in the given
    *  collection.  A replacement for retainAll(), this method returns a new
    *  collection with only the requested elements.  Takes O(size) time,
-   *  assuming a Set can test for membership in O(1) time.
+   *  assuming the collection is a Set that can test for membership in O(1)
+   *  time.
    *  @param collection The elements to be retained.  Equality is tested with
    *      equals().
    *  @return A new immutable collection.
@@ -336,14 +333,10 @@ public abstract class ImmutableCollection<E> extends AbstractCollection<E> imple
   public ImmutableCollection<E> selectAll(Collection<?> collection) {
     if (longSize() == 0) return this;
     if (collection.size() == 0) return new ImmutableArray<E>();
-    if (!(collection instanceof Set) && collection.size() * longSize() > 100) {
-      collection = new HashSet<Object>(collection);
-    }
-    Collection<?> finalCollection = collection;
 
     RebuildIterator<E> it = rebuildIterator();
     it.forEachRemaining((x)-> {
-      if (!finalCollection.contains(x)) {
+      if (!collection.contains(x)) {
         it.remove();
       }
     });

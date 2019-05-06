@@ -81,10 +81,10 @@ public class ImmutableDeque<E> extends ImmutableCollection<E> {
   }
 
   @SuppressWarnings("unchecked")
-  public ImmutableDeque<E> unshiftAll(Collection<? super E>collection) {
+  public ImmutableDeque<E> unshiftAll(Collection<? extends E>collection) {
     if (collection.isEmpty()) return this;
-    List<? super E> list = new ArrayList<>(collection);
-    ListIterator<? super E> lit = list.listIterator(list.size());
+    List<? extends E> list = new ArrayList<>(collection);
+    ListIterator<? extends E> lit = list.listIterator(list.size());
     ImmutableDeque<E> current = this;
     while (lit.hasPrevious()) {
       current = current.unshift((E)lit.previous());

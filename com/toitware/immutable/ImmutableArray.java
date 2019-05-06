@@ -464,7 +464,7 @@ public class ImmutableArray<E> extends ImmutableCollection<E> {
   }
 
   @SuppressWarnings("unchecked")
-  public ImmutableCollection<E> unshiftAll(Collection<? super E> collection) {
+  public ImmutableCollection<E> unshiftAll(Collection<? extends E> collection) {
     if (size + collection.size() <= 16) {
       // For small collections, the ImmutableArray is more memory efficient
       // than the ImmutableDeque.
@@ -473,11 +473,14 @@ public class ImmutableArray<E> extends ImmutableCollection<E> {
       }
       return new ImmutableArray(collection).pushAll(this);
     }
-    if (collection instanceof ImmutableCollection &&
-        size < collection.size()) {
-      // Reverse the operation if we are prepending a large thing onto a
-      // smaller thing.
-      return ((ImmutableCollection)collection).pushAll(this);
+    if ((size >> 2) < collection.size()) {
+      // Reverse the operation unless we are prepending a small thing onto a
+      // much larger thing.
+      if (collection instanceof ImmutableCollection) {
+        return ((ImmutableCollection)collection).pushAll(this);
+      } else {
+        return new ImmutableArray<E>(collection).pushAll(this);
+      }
     }
     return new ImmutableDeque<E>(0, this).unshiftAll(collection);
   }
