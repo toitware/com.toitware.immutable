@@ -7,6 +7,8 @@ import com.toitware.immutable.ImmutableArray;
 import com.toitware.immutable.ImmutableCollection;
 import com.toitware.immutable.ImmutableDeque;
 import com.toitware.immutable.RebuildIterator;
+import org.pcollections.TreePVector;
+import org.organicdesign.fp.collections.PersistentVector;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Iterator;
@@ -21,6 +23,18 @@ abstract class ImmutableMemoryUse {
     new ImmutableArrayMemoryUse(16).runs();
     new ImmutableArrayMemoryUse(64).runs();
     new ImmutableArrayMemoryUse(256).runs();
+    new PCollectionsMemoryUse(0).runs();
+    new PCollectionsMemoryUse(1).runs();
+    new PCollectionsMemoryUse(4).runs();
+    new PCollectionsMemoryUse(16).runs();
+    new PCollectionsMemoryUse(64).runs();
+    new PCollectionsMemoryUse(256).runs();
+    new PaguroMemoryUse(0).runs();
+    new PaguroMemoryUse(1).runs();
+    new PaguroMemoryUse(4).runs();
+    new PaguroMemoryUse(16).runs();
+    new PaguroMemoryUse(64).runs();
+    new PaguroMemoryUse(256).runs();
   }
 
   static protected final int SIZE = 10000;
@@ -80,5 +94,61 @@ abstract class ImmutableMemoryUse {
     }
 
     public String name() { return "ImmutableArray[" + elements + "]"; }
+  }
+
+  private static class PCollectionsMemoryUse extends ImmutableMemoryUse {
+    int elements;
+    int length;
+
+    PCollectionsMemoryUse(int e) {
+      elements = e;
+    }
+
+    public void setup(int size, int backing_size) {
+      holder = new Object[backing_size];
+      length = size;
+      churn();
+    }
+
+    public void churn() {
+      Integer x = 42;
+      for (int i = 0; i < length; i++) {
+        TreePVector<Integer> a = TreePVector.<Integer>empty();
+        for (int j = 0; j < elements; j++) {
+          a = a.plus(x);
+        }
+        holder[i] = a;
+      }
+    }
+
+    public String name() { return "TreePVector[" + elements + "]"; }
+  }
+
+  private static class PaguroMemoryUse extends ImmutableMemoryUse {
+    int elements;
+    int length;
+
+    PaguroMemoryUse(int e) {
+      elements = e;
+    }
+
+    public void setup(int size, int backing_size) {
+      holder = new Object[backing_size];
+      length = size;
+      churn();
+    }
+
+    public void churn() {
+      Integer x = 42;
+      for (int i = 0; i < length; i++) {
+        PersistentVector<Integer> a = PersistentVector.<Integer>empty();
+        for (int j = 0; j < elements; j++) {
+          a = a.append(x);
+        }
+        holder[i] = a;
+      }
+    }
+
+    public String name() { return "PersistentVector[" + elements + "]"; }
   }
 }

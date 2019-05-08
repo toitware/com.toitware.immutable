@@ -2,13 +2,24 @@
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
-all:
-	CLASSPATH=. javac -Xlint:unchecked com/toitware/immutable_test/ImmutableBenchmark.java
-	CLASSPATH=. java com.toitware.immutable_test.ImmutableBenchmark
-	CLASSPATH=. javac -Xlint:unchecked com/toitware/immutable_test/ImmutableMemoryUse.java
-	CLASSPATH=. java -XX:+UseCompressedOops com.toitware.immutable_test.ImmutableMemoryUse
+PPATH=../pcollections/src/main/java
+PAGPATH=../Paguro/src/main/java
+
+all: doc bench test mem
+
+doc:
+	(mkdir -p docs; cd docs; CLASSPATH=..:../$(PPATH):../$(PAGPATH) javadoc -public com.toitware.immutable org.pcollections org.organicdesign.fp.collections)
+
+bench:
+	CLASSPATH=.:$(PPATH):$(PAGPATH) javac -Xlint:unchecked com/toitware/immutable_test/ImmutableBenchmark.java
+	CLASSPATH=.:$(PPATH):$(PAGPATH) java com.toitware.immutable_test.ImmutableBenchmark
+
+test:
 	CLASSPATH=. javac -Xlint:unchecked com/toitware/immutable_test/ImmutableArrayTest.java
 	CLASSPATH=. java -ea com.toitware.immutable_test.ImmutableArrayTest
 	CLASSPATH=. javac -Xlint:unchecked com/toitware/immutable_test/ImmutableHashMapTest.java
 	CLASSPATH=. java -ea com.toitware.immutable_test.ImmutableHashMapTest
-	(mkdir -p docs; cd docs; CLASSPATH=.. javadoc -public com.toitware.immutable)
+
+mem:
+	CLASSPATH=.:$(PPATH):$(PAGPATH) javac -Xlint:unchecked com/toitware/immutable_test/ImmutableMemoryUse.java
+	CLASSPATH=.:$(PPATH):$(PAGPATH) java -XX:+UseCompressedOops com.toitware.immutable_test.ImmutableMemoryUse
