@@ -8,7 +8,9 @@ import com.toitware.immutable.ImmutableCollection;
 import com.toitware.immutable.ImmutableDeque;
 import com.toitware.immutable.RebuildIterator;
 import org.pcollections.TreePVector;
+import org.organicdesign.fp.collections.ImList;
 import org.organicdesign.fp.collections.PersistentVector;
+import org.organicdesign.fp.collections.RrbTree;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Iterator;
@@ -35,6 +37,12 @@ abstract class ImmutableMemoryUse {
     new PaguroMemoryUse(16).runs();
     new PaguroMemoryUse(64).runs();
     new PaguroMemoryUse(256).runs();
+    new RrbTreeMemoryUse(0).runs();
+    new RrbTreeMemoryUse(1).runs();
+    new RrbTreeMemoryUse(4).runs();
+    new RrbTreeMemoryUse(16).runs();
+    new RrbTreeMemoryUse(64).runs();
+    new RrbTreeMemoryUse(256).runs();
   }
 
   static protected final int SIZE = 10000;
@@ -141,7 +149,7 @@ abstract class ImmutableMemoryUse {
     public void churn() {
       Integer x = 42;
       for (int i = 0; i < length; i++) {
-        PersistentVector<Integer> a = PersistentVector.<Integer>empty();
+        ImList<Integer> a = PersistentVector.<Integer>empty();
         for (int j = 0; j < elements; j++) {
           a = a.append(x);
         }
@@ -150,5 +158,33 @@ abstract class ImmutableMemoryUse {
     }
 
     public String name() { return "PersistentVector[" + elements + "]"; }
+  }
+
+  private static class RrbTreeMemoryUse extends ImmutableMemoryUse {
+    int elements;
+    int length;
+
+    RrbTreeMemoryUse(int e) {
+      elements = e;
+    }
+
+    public void setup(int size, int backing_size) {
+      holder = new Object[backing_size];
+      length = size;
+      churn();
+    }
+
+    public void churn() {
+      Integer x = 42;
+      for (int i = 0; i < length; i++) {
+        ImList<Integer> a = RrbTree.ImRrbt.<Integer>empty();
+        for (int j = 0; j < elements; j++) {
+          a = a.append(x);
+        }
+        holder[i] = a;
+      }
+    }
+
+    public String name() { return "RrrbTree[" + elements + "]"; }
   }
 }

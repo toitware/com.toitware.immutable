@@ -24,6 +24,7 @@ import org.pcollections.PVector;
 
 import org.organicdesign.fp.collections.ImList;
 import org.organicdesign.fp.collections.PersistentVector;
+import org.organicdesign.fp.collections.RrbTree;
 import org.organicdesign.fp.collections.UnmodIterable;
 import org.organicdesign.fp.collections.UnmodList;
 
@@ -32,14 +33,17 @@ abstract class ImmutableBenchmark {
     new ForInBench().runs();
     new PForInBench().runs();
     new PagForInBench().runs();
+    new RrbForInBench().runs();
     new ForInDequeBench().runs();
     new ForEachBench().runs();
     new PForEachBench().runs();
     new PagForEachBench().runs();
+    new RrbForEachBench().runs();
     new ForEachDequeBench().runs();
     new IntLoopBench().runs();
     new PIntLoopBench().runs();
     new PagIntLoopBench().runs();
+    new RrbIntLoopBench().runs();
     new IntLoopDequeBench().runs();
     new ArrayListForInBench().runs();
     new ArrayListForEachBench().runs();
@@ -50,33 +54,42 @@ abstract class ImmutableBenchmark {
     new ForInBench().runs();
     new PForInBench().runs();
     new PagForInBench().runs();
+    new RrbForInBench().runs();
     new ForInDequeBench().runs();
     new ForEachBench().runs();
     new PForEachBench().runs();
     new PagForEachBench().runs();
+    new RrbForEachBench().runs();
     new ForEachDequeBench().runs();
     new IntLoopBench().runs();
     new PIntLoopBench().runs();
     new PagIntLoopBench().runs();
+    new RrbIntLoopBench().runs();
     new IntLoopDequeBench().runs();
 
     new Push1AtATimeBench().runs();
     new PPush1AtATimeBench().runs();
     new PagPush1AtATimeBench().runs();
+    new RrbPush1AtATimeBench().runs();
     new PushAllBench().runs();
     new PPushAllBench().runs();
     new PagPushAllBench().runs();
+    new RrbPushAllBench().runs();
+    new RrbJoinAllBench().runs();
     new PushAllFromListBench().runs();
     new PPushAllFromListBench().runs();
     new PagPushAllFromListBench().runs();
+    new RrbPushAllFromListBench().runs();
     new PushAllListList().runs();
     new Insert1AtATimeBench().runs();
     new PInsert1AtATimeBench().runs();
+    new RrbInsert1AtATimeBench().runs();
     new InsertAllBench().runs();
     new PInsertAllBench().runs();
     new PagInsertAllBench().runs();
     new Unshifting1AtATimeBench().runs();
     new PUnshifting1AtATimeBench().runs();
+    new RrbUnshifting1AtATimeBench().runs();
     new UnshiftingAllBench().runs();
     new PUnshiftingAllBench().runs();
     new UnshiftAllFromList().runs();
@@ -117,27 +130,32 @@ abstract class ImmutableBenchmark {
     protected ImmutableArray<ImmutableCollection<Integer>> _top;
     protected PVector<PVector<Integer>> _pvectors;
     protected ImList<ImList<Integer>> _paguro;
+    protected RrbTree.ImRrbt<RrbTree.ImRrbt<Integer>> _rrbs;
 
     public void setup() {
       Random random = new Random(1034210342);
       _top = new ImmutableArray<>();
       _pvectors = TreePVector.<PVector<Integer>>empty();
       _paguro = PersistentVector.<ImList<Integer>>empty();
+      _rrbs = RrbTree.ImRrbt.<RrbTree.ImRrbt<Integer>>empty();
       long sum = 0;
       for (int i = 0; i < 1000; i++) {
         ImmutableArray<Integer> a = new ImmutableArray<>();
         PVector<Integer> p = TreePVector.<Integer>empty();
         ImList<Integer> l = PersistentVector.<Integer>empty();
+        RrbTree.ImRrbt<Integer> r = RrbTree.ImRrbt.<Integer>empty();
         for (int j = 0; j < 1000; j++) {
           int x = random.nextInt(123);
           a = a.push(x);
           p = p.plus(x);
           l = l.append(x);
+          r = r.append(x);
           sum += x;
         }
         _top = _top.push(a);
         _pvectors = _pvectors.plus(p);
         _paguro = _paguro.append(l);
+        _rrbs = _rrbs.append(r);
         _sum = sum;
       }
     }
@@ -207,6 +225,25 @@ abstract class ImmutableBenchmark {
     protected long sumForIn() {
       long sum = 0;
       for (ImList<Integer> array : _paguro) {
+        for (int x : array) {
+          sum += x;
+        }
+      }
+      return sum;
+    }
+  }
+
+  private static class RrbForInBench extends IterationBench {
+    public String name() { return "RrbForIn  "; }
+
+    public void run() {
+      long answer = sumForIn();
+      if (answer != sum()) throw new RuntimeException();
+    }
+
+    protected long sumForIn() {
+      long sum = 0;
+      for (RrbTree.ImRrbt<Integer> array : _rrbs) {
         for (int x : array) {
           sum += x;
         }
@@ -287,6 +324,27 @@ abstract class ImmutableBenchmark {
     }
   }
 
+  private static class RrbForEachBench extends IterationBench {
+    public String name() { return "RrbForEach "; }
+
+    long s;
+
+    public void run() {
+      long answer = sumForEach();
+      if (answer != sum()) throw new RuntimeException();
+    }
+
+    protected long sumForEach() {
+      s = 0;
+      _rrbs.forEach((array)-> {
+        array.forEach((x)-> {
+          s += x;
+        });
+      });
+      return s;
+    }
+  }
+
   private static class IntLoopBench extends IterationBench {
     public String name() { return "IntLoop   "; }
 
@@ -339,6 +397,26 @@ abstract class ImmutableBenchmark {
       long sum = 0;
       for (int i = 0; i < _paguro.size(); i++) {
         ImList<Integer> a = _paguro.get(i);
+        for (int j = 0; j < a.size(); j++) {
+          sum += a.get(j);
+        }
+      }
+      return sum;
+    }
+  }
+
+  private static class RrbIntLoopBench extends IterationBench {
+    public String name() { return "RrbIntLoop "; }
+
+    public void run() {
+      long answer = sumIntLoop();
+      if (answer != sum()) throw new RuntimeException();
+    }
+
+    protected long sumIntLoop() {
+      long sum = 0;
+      for (int i = 0; i < _rrbs.size(); i++) {
+        RrbTree.ImRrbt<Integer> a = _rrbs.get(i);
         for (int j = 0; j < a.size(); j++) {
           sum += a.get(j);
         }
@@ -442,6 +520,7 @@ abstract class ImmutableBenchmark {
     protected ImmutableArray<ImmutableArray<Integer>> _top;
     protected PVector<PVector<Integer>> _pvectors;
     protected ImList<ImList<Integer>> _paguro;
+    protected RrbTree.ImRrbt<RrbTree.ImRrbt<Integer>> _rrbs;
     protected ImmutableArray<Long> _sums;
     protected List<List<Integer>> _lists = new ArrayList<>();
     protected List<Set<Integer>> _sets = new ArrayList<>();
@@ -451,6 +530,7 @@ abstract class ImmutableBenchmark {
       _top = new ImmutableArray<>();
       _pvectors = TreePVector.<PVector<Integer>>empty();
       _paguro = PersistentVector.<ImList<Integer>>empty();
+      _rrbs = RrbTree.ImRrbt.<RrbTree.ImRrbt<Integer>>empty();
       _sums = new ImmutableArray<>();
       for (int i = 0; i < 31; i++) {
         long sum = 0;
@@ -458,16 +538,19 @@ abstract class ImmutableBenchmark {
         ImmutableArray<Integer> a = new ImmutableArray<>();
         PVector<Integer> p = TreePVector.<Integer>empty();
         ImList<Integer> l = PersistentVector.<Integer>empty();
+        RrbTree.ImRrbt<Integer> r = RrbTree.ImRrbt.<Integer>empty();
         for (int j = 0; j < size; j++) {
           int x = random.nextInt(123);
           sum += x;
           a = a.push(x);
           p = p.plus(x);
           l = l.append(x);
+          r = r.append(x);
         }
         _top = _top.push(a);
         _pvectors = _pvectors.plus(p);
         _paguro = _paguro.append(l);
+        _rrbs = _rrbs.append(r);
         _sums = _sums.push(sum);
       }
       for (int i = 0; i < _top.size(); i++) {
@@ -513,6 +596,33 @@ abstract class ImmutableBenchmark {
         int y = 0;
         for (ImList<Integer> a2 : _paguro) {
           ImList<Integer> both[] = new ImList[1];
+          both[0] = a1;
+          a2.forEach((e)-> {
+            both[0] = both[0].append(e);
+          });
+          int sum[] = new int[1];
+          both[0].forEach((e) -> {
+            sum[0] += e;
+          });
+          if (sum[0] != _sums.get(x) + _sums.get(y)) {
+            throw new RuntimeException();
+          }
+          y++;
+        }
+        x++;
+      }
+    }
+  }
+
+  @SuppressWarnings("unchecked")
+  private static class RrbPush1AtATimeBench extends BuildingBench {
+    public String name() { return "RrbPush1AtATimeBench     "; }
+    public void run() {
+      int x = 0;
+      for (RrbTree.ImRrbt<Integer> a1 : _rrbs) {
+        int y = 0;
+        for (RrbTree.ImRrbt<Integer> a2 : _rrbs) {
+          RrbTree.ImRrbt<Integer> both[] = new RrbTree.ImRrbt[1];
           both[0] = a1;
           a2.forEach((e)-> {
             both[0] = both[0].append(e);
@@ -618,6 +728,34 @@ abstract class ImmutableBenchmark {
   }
 
   @SuppressWarnings("unchecked")
+  private static class RrbInsert1AtATimeBench extends BuildingBench {
+    public String name() { return "RrbInsert1AtATimeBench  "; }
+    public void run() {
+      int x = 0;
+      for (RrbTree<Integer> a1 : _rrbs) {
+        int y = 0;
+        for (RrbTree<Integer> a2 : _rrbs) {
+          RrbTree<Integer> both[] = new RrbTree[1];
+          both[0] = a1;
+          a2.forEach((e)-> {
+            int position = both[0].size() >> 1;
+            both[0] = both[0].insert(position, e);
+          });
+          int sum[] = new int[1];
+          both[0].forEach((e) -> {
+            sum[0] += e;
+          });
+          if (sum[0] != _sums.get(x) + _sums.get(y)) {
+            throw new RuntimeException();
+          }
+          y++;
+        }
+        x++;
+      }
+    }
+  }
+
+  @SuppressWarnings("unchecked")
   private static class Unshifting1AtATimeBench extends BuildingBench {
     public String name() { return "Unshifting1AtATimeBench  "; }
     public void run() {
@@ -671,6 +809,33 @@ abstract class ImmutableBenchmark {
     }
   }
 
+  @SuppressWarnings("unchecked")
+  private static class RrbUnshifting1AtATimeBench extends BuildingBench {
+    public String name() { return "RrbUnshifting1AtATimeBench "; }
+    public void run() {
+      int x = 0;
+      for (RrbTree<Integer> a1 : _rrbs) {
+        int y = 0;
+        for (RrbTree<Integer> a2 : _rrbs) {
+          RrbTree<Integer> both[] = new RrbTree.ImRrbt[1];
+          both[0] = a1;
+          a2.forEach((e)-> {
+            both[0] = both[0].insert(0, e);
+          });
+          int sum[] = new int[1];
+          both[0].forEach((e) -> {
+            sum[0] += e;
+          });
+          if (sum[0] != _sums.get(x) + _sums.get(y)) {
+            throw new RuntimeException();
+          }
+          y++;
+        }
+        x++;
+      }
+    }
+  }
+
   private static class PushAllBench extends BuildingBench {
     public String name() { return "PushAllBench          "; }
     public void run() {
@@ -701,6 +866,50 @@ abstract class ImmutableBenchmark {
         int y = 0;
         for (ImList<Integer> a2 : _paguro) {
           ImList<Integer> both = a1.concat(a2);
+          int sum[] = new int[1];
+          both.forEach((e) -> {
+            sum[0] += e;
+          });
+          if (sum[0] != _sums.get(x) + _sums.get(y)) {
+            throw new RuntimeException();
+          }
+          y++;
+        }
+        x++;
+      }
+    }
+  }
+
+  private static class RrbPushAllBench extends BuildingBench {
+    public String name() { return "RrbPushAllBench       "; }
+    public void run() {
+      int x = 0;
+      for (RrbTree.ImRrbt<Integer> a1 : _rrbs) {
+        int y = 0;
+        for (RrbTree.ImRrbt<Integer> a2 : _rrbs) {
+          RrbTree.ImRrbt<Integer> both = a1.concat(a2);
+          int sum[] = new int[1];
+          both.forEach((e) -> {
+            sum[0] += e;
+          });
+          if (sum[0] != _sums.get(x) + _sums.get(y)) {
+            throw new RuntimeException();
+          }
+          y++;
+        }
+        x++;
+      }
+    }
+  }
+
+  private static class RrbJoinAllBench extends BuildingBench {
+    public String name() { return "RrbJoinAllBench       "; }
+    public void run() {
+      int x = 0;
+      for (RrbTree.ImRrbt<Integer> a1 : _rrbs) {
+        int y = 0;
+        for (RrbTree.ImRrbt<Integer> a2 : _rrbs) {
+          RrbTree<Integer> both = a1.join(a2);
           int sum[] = new int[1];
           both.forEach((e) -> {
             sum[0] += e;
@@ -884,6 +1093,28 @@ abstract class ImmutableBenchmark {
         int y = 0;
         for (List<Integer> a2 : _lists) {
           ImList<Integer> both = a1.concat(a2);
+          int sum[] = new int[1];
+          both.forEach((e) -> {
+            sum[0] += e;
+          });
+          if (sum[0] != _sums.get(x) + _sums.get(y)) {
+            throw new RuntimeException();
+          }
+          y++;
+        }
+        x++;
+      }
+    }
+  }
+
+  private static class RrbPushAllFromListBench extends BuildingBench {
+    public String name() { return "RrbPushAllFromListBench "; }
+    public void run() {
+      int x = 0;
+      for (RrbTree.ImRrbt<Integer> a1 : _rrbs) {
+        int y = 0;
+        for (List<Integer> a2 : _lists) {
+          RrbTree.ImRrbt<Integer> both = a1.concat(a2);
           int sum[] = new int[1];
           both.forEach((e) -> {
             sum[0] += e;
