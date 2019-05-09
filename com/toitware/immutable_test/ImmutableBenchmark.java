@@ -71,6 +71,8 @@ abstract class ImmutableBenchmark {
     new PPush1AtATimeBench().runs();
     new PagPush1AtATimeBench().runs();
     new RrbPush1AtATimeBench().runs();
+    new Push2AtATimeBench().runs();
+    new PagPush2AtATimeBench().runs();
     new PushAllBench().runs();
     new PPushAllBench().runs();
     new PagPushAllBench().runs();
@@ -534,7 +536,7 @@ abstract class ImmutableBenchmark {
       _sums = new ImmutableArray<>();
       for (int i = 0; i < 31; i++) {
         long sum = 0;
-        int size = random.nextInt(1000) + 500;
+        int size = (random.nextInt(1000) & ~1) + 500;
         ImmutableArray<Integer> a = new ImmutableArray<>();
         PVector<Integer> p = TreePVector.<Integer>empty();
         ImList<Integer> l = PersistentVector.<Integer>empty();
@@ -588,6 +590,39 @@ abstract class ImmutableBenchmark {
   }
 
   @SuppressWarnings("unchecked")
+  private static class Push2AtATimeBench extends BuildingBench {
+    public String name() { return "Push2AtATimeBench     "; }
+    public void run() {
+      int x = 0;
+      for (ImmutableCollection<Integer> a1 : _top) {
+        int y = 0;
+        for (ImmutableCollection<Integer> a2 : _top) {
+          ImmutableCollection<Integer> both[] = new ImmutableCollection[1];
+          both[0] = a1;
+          Integer prev[] = new Integer[] { null };
+          a2.forEach((e)-> {
+            if (prev[0] == null) {
+              prev[0] = e;
+            } else {
+              both[0] = both[0].push(prev[0], e);
+              prev[0] = null;
+            }
+          });
+          int sum[] = new int[1];
+          both[0].forEach((e) -> {
+            sum[0] += e;
+          });
+          if (sum[0] != _sums.get(x) + _sums.get(y)) {
+            throw new RuntimeException();
+          }
+          y++;
+        }
+        x++;
+      }
+    }
+  }
+
+  @SuppressWarnings("unchecked")
   private static class PagPush1AtATimeBench extends BuildingBench {
     public String name() { return "PagPush1AtATimeBench     "; }
     public void run() {
@@ -599,6 +634,38 @@ abstract class ImmutableBenchmark {
           both[0] = a1;
           a2.forEach((e)-> {
             both[0] = both[0].append(e);
+          });
+          int sum[] = new int[1];
+          both[0].forEach((e) -> {
+            sum[0] += e;
+          });
+          if (sum[0] != _sums.get(x) + _sums.get(y)) {
+            throw new RuntimeException();
+          }
+          y++;
+        }
+        x++;
+      }
+    }
+  }
+
+  @SuppressWarnings("unchecked")
+  private static class PagPush2AtATimeBench extends BuildingBench {
+    public String name() { return "PagPush2AtATimeBench     "; }
+    public void run() {
+      int x = 0;
+      for (ImList<Integer> a1 : _paguro) {
+        int y = 0;
+        for (ImList<Integer> a2 : _paguro) {
+          ImList<Integer> both[] = new ImList[] { a1 };
+          Integer prev[] = new Integer[] { null };
+          a2.forEach((e)-> {
+            if (prev[0] == null) {
+              prev[0] = e;
+            } else {
+              both[0] = both[0].append(prev[0]).append(e);
+              prev[0] = null;
+            }
           });
           int sum[] = new int[1];
           both[0].forEach((e) -> {
