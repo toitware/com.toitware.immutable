@@ -601,6 +601,7 @@ public class ImmutableArray<E> extends ImmutableCollection<E> {
       _tail = tail;
       _remaining = length;
       _index = 0;
+      _init();
     }
 
     public ImmutableArrayIterator(long length, Object[] powers, Object[] tail, long starting) {
@@ -616,9 +617,12 @@ public class ImmutableArray<E> extends ImmutableCollection<E> {
         // correct position, but the arraylets in the _stack are set to
         // to one less (the last real position).
         _index = length - 1;
-        _init();  // Eagerly create and initialize.
+        _init();  // Set stack for the last position it makes sense.
+        _index = starting;
+      } else {
+        _index = starting;
+        _init();
       }
-      _index = starting;
     }
 
     protected void _init() {
@@ -656,7 +660,7 @@ public class ImmutableArray<E> extends ImmutableCollection<E> {
     public E next() {
       // Short version of next, designed to be inlined.
       assert hasNext();
-      if (_stack == null) _init();
+      //if (_stack == null) _init();
       int arraylet_posn = (int)(_index & MASK);
       Object bottom_arraylet[] = _stack[_powers_posn];
       E result = (E)bottom_arraylet[arraylet_posn];
@@ -677,8 +681,8 @@ public class ImmutableArray<E> extends ImmutableCollection<E> {
       // different levels of the tree, which gives O(n) iteration.  The nth
       // position in the _powers array has a tree under it that is n+1 deep,
       // which also sets the size of the explicit stack we need.
-      int shift = 0;
-      for (int idx = _powers_posn; idx >= 0; idx--) {
+      int shift = SHIFT;
+      for (int idx = _powers_posn - 1; idx >= 0; idx--) {
         Object[] arraylet = (Object[])(_stack[idx]);
         int arraylet_posn = (int)((_index >> shift) & MASK);
         if (arraylet_posn != 0 && arraylet_posn != arraylet.length) {
@@ -689,15 +693,7 @@ public class ImmutableArray<E> extends ImmutableCollection<E> {
       }
       // Need to move to next position in _powers array.
       if (_powers_posn == 0) return;  // Hit the end.
-      int powers_posn = _powers_posn;
-      do {
-        powers_posn--;
-        if (powers_posn == 0) {
-          if (_tail.length != 0) break;
-          return;  // Hit the end.
-        }
-      } while (((Object[])_powers[powers_posn - 1]).length == 0);
-      _powers_posn = powers_posn;
+      _powers_posn = _powerPosn(_index ^ (_index + _remaining));
       _populate_stack();
     }
 
@@ -736,7 +732,7 @@ public class ImmutableArray<E> extends ImmutableCollection<E> {
     @SuppressWarnings("unchecked")
     public E previous() {
       // Short version of previous, designed to be inlined.
-      if (_stack == null) _init();
+      //if (_stack == null) _init();
       assert hasPrevious();
       int arraylet_posn = (int)(_index & MASK);
       _index--;
@@ -769,13 +765,7 @@ public class ImmutableArray<E> extends ImmutableCollection<E> {
         shift += SHIFT;
       }
       // Need to move to previous position in _powers array.
-      int powers_posn = _powers_posn;
-      do {
-        powers_posn++;
-        // Can't go earlier than the 0th element.
-        assert powers_posn != _powers.length + 1;
-      } while (((Object[])_powers[powers_posn - 1]).length == 0);
-      _powers_posn = powers_posn;
+      _powers_posn = _powerPosn(_index ^ (_index + _remaining));
       _populate_stack();
     }
 
