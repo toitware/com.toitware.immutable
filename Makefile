@@ -17,8 +17,6 @@ bench:
 test:
 	CLASSPATH=. javac -Xlint:unchecked com/toitware/immutable_test/ImmutableArrayTest.java
 	CLASSPATH=. java -ea com.toitware.immutable_test.ImmutableArrayTest
-	CLASSPATH=.:../pcollections/src/main/java javac -Xlint:unchecked com/toitware/immutable_test/ImmutableBenchmark.java
-	CLASSPATH=. java com.toitware.immutable_test.ImmutableBenchmark
 	CLASSPATH=. javac -Xlint:unchecked com/toitware/immutable_test/ImmutableHashMapTest.java
 	CLASSPATH=. java -ea com.toitware.immutable_test.ImmutableHashMapTest
 

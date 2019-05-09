@@ -283,6 +283,9 @@ class ImmutableArrayTest {
       for (int i = 0; i < ARRAYS; i++) {
         assert(control.get(i).size() == arrays.get(i).size());
         for (int j = 0; j < control.get(i).size(); j++) {
+          if (!control.get(i).get(j).equals(arrays.get(i).get(j))) {
+            System.out.println("Fail at " + i + " " + j);
+          }
           assert(control.get(i).get(j).equals(arrays.get(i).get(j)));
         }
         int j = 0;

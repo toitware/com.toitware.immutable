@@ -173,7 +173,7 @@ public abstract class ImmutableCollection<E> extends AbstractCollection<E> imple
 
   /** Create a new ImmutableCollection that is the current ImmutableCollection
    *  with all elements of a collection pushed on the end.  May return itself
-   *  if the provided collection is empty.  Takes time O(array.length).
+   *  if the provided collection is empty.  Takes time O(collection.size()).
    *  @param collection The collection whose elements should be appended to
    *      this ImmutableCollection.
    *  @return A new ImmutableCollection with the extra elements.
