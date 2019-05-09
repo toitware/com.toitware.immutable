@@ -130,20 +130,17 @@ public class ImmutableArray<E> extends ImmutableCollection<E> {
 
   @SuppressWarnings("unchecked")
   public E get(long index) {
-    long len = size;
-    if (index < 0 || index >= len) throw new IndexOutOfBoundsException();
+    if (index < 0 || index >= size) throw new IndexOutOfBoundsException();
     int power_posn = _powerPosn(index ^ size);
     if (power_posn == 0) return (E)_tail[(int)(index & MASK)];
-    long mask = (1 << ((power_posn + 1) * SHIFT)) - 1;
-    return _get(power_posn, index & mask, _powers[power_posn - 1]);
-  }
-
-  @SuppressWarnings("unchecked")
-  private E _get(int tribbles, long index, Object obj) {
-    Object array[] = (Object[])obj;
-    if (tribbles == 0) return (E)array[(int)index];
-    long idx = index >>> (tribbles * SHIFT);
-    return _get(tribbles - 1, index - (idx << (tribbles * SHIFT)), array[(int)idx]);
+    Object array[] = (Object[])_powers[power_posn - 1];
+    int shift = power_posn * SHIFT;
+    while (true) {
+      if (shift == 0) return (E)array[(int)(index & MASK)];
+      int idx = (int)(index >>> shift);
+      array = (Object[])array[idx & MASK];
+      shift -= SHIFT;
+    }
   }
 
   static private Object[] _copyPad(Object old[], int new_length) {
