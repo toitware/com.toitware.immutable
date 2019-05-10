@@ -31,6 +31,7 @@ import org.organicdesign.fp.collections.UnmodList;
 abstract class ImmutableBenchmark {
   public static void main(String args[]) {
     new ForInBench().runs();
+    //new KruForInBench().runs();
     new PForInBench().runs();
     new PagForInBench().runs();
     new RrbForInBench().runs();
@@ -68,6 +69,7 @@ abstract class ImmutableBenchmark {
     new IntLoopDequeBench().runs();
 
     new Push1AtATimeBench().runs();
+    //new KruPush1AtATimeBench().runs();
     new PPush1AtATimeBench().runs();
     new PagPush1AtATimeBench().runs();
     new RrbPush1AtATimeBench().runs();
@@ -133,6 +135,7 @@ abstract class ImmutableBenchmark {
     protected PVector<PVector<Integer>> _pvectors;
     protected ImList<ImList<Integer>> _paguro;
     protected RrbTree.ImRrbt<RrbTree.ImRrbt<Integer>> _rrbs;
+    //protected ArrayList<com.github.krukow.clj_ds.PersistentVector<Integer>> _krukows;
 
     public void setup() {
       Random random = new Random(1034210342);
@@ -140,24 +143,28 @@ abstract class ImmutableBenchmark {
       _pvectors = TreePVector.<PVector<Integer>>empty();
       _paguro = PersistentVector.<ImList<Integer>>empty();
       _rrbs = RrbTree.ImRrbt.<RrbTree.ImRrbt<Integer>>empty();
+      //_krukows = new ArrayList<com.github.krukow.clj_ds.PersistentVector<Integer>>();
       long sum = 0;
       for (int i = 0; i < 1000; i++) {
         ImmutableArray<Integer> a = new ImmutableArray<>();
         PVector<Integer> p = TreePVector.<Integer>empty();
         ImList<Integer> l = PersistentVector.<Integer>empty();
         RrbTree.ImRrbt<Integer> r = RrbTree.ImRrbt.<Integer>empty();
+        //com.github.krukow.clj_ds.PersistentVector<Integer> k = com.github.krukow.clj_ds.Persistents.<Integer>vector();
         for (int j = 0; j < 1000; j++) {
           int x = random.nextInt(123);
           a = a.push(x);
           p = p.plus(x);
           l = l.append(x);
           r = r.append(x);
+          //k = k.plus(x);
           sum += x;
         }
         _top = _top.push(a);
         _pvectors = _pvectors.plus(p);
         _paguro = _paguro.append(l);
         _rrbs = _rrbs.append(r);
+        //_krukows.add(k);
         _sum = sum;
       }
     }
@@ -526,6 +533,7 @@ abstract class ImmutableBenchmark {
     protected ImmutableArray<Long> _sums;
     protected List<List<Integer>> _lists = new ArrayList<>();
     protected List<Set<Integer>> _sets = new ArrayList<>();
+    //protected List<com.github.krukow.clj_ds.PersistentVector<Integer>> _krukows = new ArrayList<>();
 
     public void setup() {
       Random random = new Random(1034210342);
@@ -541,6 +549,7 @@ abstract class ImmutableBenchmark {
         PVector<Integer> p = TreePVector.<Integer>empty();
         ImList<Integer> l = PersistentVector.<Integer>empty();
         RrbTree.ImRrbt<Integer> r = RrbTree.ImRrbt.<Integer>empty();
+        //com.github.krukow.clj_ds.PersistentVector<Integer> k = com.github.krukow.clj_ds.Persistents.<Integer>vector();
         for (int j = 0; j < size; j++) {
           int x = random.nextInt(123);
           sum += x;
@@ -548,11 +557,13 @@ abstract class ImmutableBenchmark {
           p = p.plus(x);
           l = l.append(x);
           r = r.append(x);
+          //k = k.plus(x);
         }
         _top = _top.push(a);
         _pvectors = _pvectors.plus(p);
         _paguro = _paguro.append(l);
         _rrbs = _rrbs.append(r);
+        //_krukows.add(k);
         _sums = _sums.push(sum);
       }
       for (int i = 0; i < _top.size(); i++) {
@@ -1381,4 +1392,79 @@ abstract class ImmutableBenchmark {
       }
     }
   }
+
+  /*
+   * The version of Karl Krukows port of CLJ data structures that is
+   * available on Github no longer compiles due to language changes,
+   * so this is commented out.  The changes needed are pretty minimal
+   * (mostly just variables called _.
+   *
+  private static class KruForInBench extends IterationBench {
+    public String name() { return "KruForIn  "; }
+
+    public void run() {
+      long answer = sumForIn();
+      if (answer != sum()) throw new RuntimeException();
+    }
+
+    protected long sumForIn() {
+      long sum = 0;
+      for (com.github.krukow.clj_ds.PersistentVector<Integer> array : _krukows) {
+        for (int x : array) {
+          sum += x;
+        }
+      }
+      return sum;
+    }
+  }
+
+  @SuppressWarnings("unchecked")
+  private static class KruPush1AtATimeBench extends BuildingBench {
+    public String name() { return "KruPush1AtATimeBench  "; }
+    public void run() {
+      int x = 0;
+      for (com.github.krukow.clj_ds.PersistentVector<Integer> a1 : _krukows) {
+        int y = 0;
+        for (com.github.krukow.clj_ds.PersistentVector<Integer> a2 : _krukows) {
+          com.github.krukow.clj_ds.PersistentVector<Integer> both[] = new com.github.krukow.clj_ds.PersistentVector[1];
+          both[0] = a1;
+          a2.forEach((e)-> {
+            both[0] = both[0].plus(e);
+          });
+          int sum[] = new int[1];
+          both[0].forEach((e) -> {
+            sum[0] += e;
+          });
+          if (sum[0] != _sums.get(x) + _sums.get(y)) {
+            throw new RuntimeException();
+          }
+          y++;
+        }
+        x++;
+      }
+    }
+  }
+
+  private static class KruPushAllBench extends BuildingBench {
+    public String name() { return "KruPushAllBench       "; }
+    public void run() {
+      int x = 0;
+      for (com.github.krukow.clj_ds.PersistentVector<Integer> a1 : _krukows) {
+        int y = 0;
+        for (com.github.krukow.clj_ds.PersistentVector<Integer> a2 : _krukows) {
+          com.github.krukow.clj_ds.PersistentVector<Integer> both = a1.plusAll(a2);
+          int sum[] = new int[1];
+          both.forEach((e) -> {
+            sum[0] += e;
+          });
+          if (sum[0] != _sums.get(x) + _sums.get(y)) {
+            throw new RuntimeException();
+          }
+          y++;
+        }
+        x++;
+      }
+    }
+  }
+  */
 }

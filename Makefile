@@ -4,15 +4,16 @@
 
 PPATH=../pcollections/src/main/java
 PAGPATH=../Paguro/src/main/java
+KRUPATH=../clj-ds/src/main/java
 
 all: doc bench test mem
 
 doc:
-	(mkdir -p docs; cd docs; CLASSPATH=..:../$(PPATH):../$(PAGPATH) javadoc -public com.toitware.immutable org.pcollections org.organicdesign.fp.collections)
+	(mkdir -p docs; cd docs; CLASSPATH=..:../$(PPATH):../$(PAGPATH):../$(KRUPATH) javadoc -public com.toitware.immutable org.pcollections org.organicdesign.fp.collections)
 
 bench:
-	CLASSPATH=.:$(PPATH):$(PAGPATH) javac -Xlint:unchecked com/toitware/immutable_test/ImmutableBenchmark.java
-	CLASSPATH=.:$(PPATH):$(PAGPATH) java com.toitware.immutable_test.ImmutableBenchmark
+	CLASSPATH=.:$(PPATH):$(PAGPATH):$(KRUPATH) javac -Xlint:unchecked com/toitware/immutable_test/ImmutableBenchmark.java
+	CLASSPATH=.:$(PPATH):$(PAGPATH):$(KRUPATH) java com.toitware.immutable_test.ImmutableBenchmark
 
 test:
 	CLASSPATH=. javac -Xlint:unchecked com/toitware/immutable_test/ImmutableArrayTest.java
@@ -21,5 +22,5 @@ test:
 	CLASSPATH=. java -ea com.toitware.immutable_test.ImmutableHashMapTest
 
 mem:
-	CLASSPATH=.:$(PPATH):$(PAGPATH) javac -Xlint:unchecked com/toitware/immutable_test/ImmutableMemoryUse.java
-	CLASSPATH=.:$(PPATH):$(PAGPATH) java -XX:+UseCompressedOops com.toitware.immutable_test.ImmutableMemoryUse
+	CLASSPATH=.:$(PPATH):$(PAGPATH):$(KRUPATH) javac -Xlint:unchecked com/toitware/immutable_test/ImmutableMemoryUse.java
+	CLASSPATH=.:$(PPATH):$(PAGPATH):$(KRUPATH) java -XX:+UseCompressedOops com.toitware.immutable_test.ImmutableMemoryUse
