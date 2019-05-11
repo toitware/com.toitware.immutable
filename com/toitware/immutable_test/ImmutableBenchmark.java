@@ -30,6 +30,10 @@ import org.organicdesign.fp.collections.UnmodList;
 
 abstract class ImmutableBenchmark {
   public static void main(String args[]) {
+    new RandomAccess().runs();
+    new PRandomAccess().runs();
+    new PagRandomAccess().runs();
+    new RrbRandomAccess().runs();
     new ForInBench().runs();
     //new KruForInBench().runs();
     new PForInBench().runs();
@@ -98,6 +102,8 @@ abstract class ImmutableBenchmark {
     new PUnshiftingAllBench().runs();
     new UnshiftAllFromList().runs();
     new PUnshiftAllFromList().runs();
+    new RrbUnshiftOrPush1AtATimeBench().runs();
+    new UnshiftOrPush1AtATimeBench().runs();
 
     new FilterAllBench().runs();
     new FilterAllWithSetBench().runs();
@@ -258,6 +264,130 @@ abstract class ImmutableBenchmark {
         }
       }
       return sum;
+    }
+  }
+
+  private static class RandomAccess extends IterationBench {
+    public String name() { return "RandomAccess   "; }
+
+    long s;
+
+    public void run() {
+      long answer = sumForEach();
+      if (answer != sum()) throw new RuntimeException();
+    }
+
+    protected long sumForEach() {
+      s = 0;
+      Random random = new Random(1034210342);
+      Integer ft = 42;
+      List<Integer> indices = new ArrayList<Integer>();
+      for (int i = 0; i < 500; i++) {
+        indices.add(random.nextInt(1000));
+      }
+      _top.forEach((array)-> {
+        for (int idx : indices) {
+          s += array.get(idx) - 42;
+          array = array.atPut(idx, ft);
+        }
+        array.forEach((x)-> {
+          s += x;
+        });
+      });
+      return s;
+    }
+  }
+
+  private static class PRandomAccess extends IterationBench {
+    public String name() { return "PRandomAccess  "; }
+
+    long s;
+
+    public void run() {
+      long answer = sumForEach();
+      if (answer != sum()) throw new RuntimeException();
+    }
+
+    protected long sumForEach() {
+      s = 0;
+      Random random = new Random(1034210342);
+      Integer ft = 42;
+      List<Integer> indices = new ArrayList<Integer>();
+      for (int i = 0; i < 500; i++) {
+        indices.add(random.nextInt(1000));
+      }
+      _pvectors.forEach((array)-> {
+        for (int idx : indices) {
+          s += array.get(idx) - 42;
+          array = array.with(idx, ft);
+        }
+        array.forEach((x)-> {
+          s += x;
+        });
+      });
+      return s;
+    }
+  }
+
+  private static class PagRandomAccess extends IterationBench {
+    public String name() { return "PagRandomAccess "; }
+
+    long s;
+
+    public void run() {
+      long answer = sumForEach();
+      if (answer != sum()) throw new RuntimeException();
+    }
+
+    protected long sumForEach() {
+      s = 0;
+      Random random = new Random(1034210342);
+      Integer ft = 42;
+      List<Integer> indices = new ArrayList<Integer>();
+      for (int i = 0; i < 500; i++) {
+        indices.add(random.nextInt(1000));
+      }
+      _paguro.forEach((array)-> {
+        for (int idx : indices) {
+          s += array.get(idx) - 42;
+          array = array.replace(idx, ft);
+        }
+        array.forEach((x)-> {
+          s += x;
+        });
+      });
+      return s;
+    }
+  }
+
+  private static class RrbRandomAccess extends IterationBench {
+    public String name() { return "RrbRandomAccess "; }
+
+    long s;
+
+    public void run() {
+      long answer = sumForEach();
+      if (answer != sum()) throw new RuntimeException();
+    }
+
+    protected long sumForEach() {
+      s = 0;
+      Random random = new Random(1034210342);
+      Integer ft = 42;
+      List<Integer> indices = new ArrayList<Integer>();
+      for (int i = 0; i < 500; i++) {
+        indices.add(random.nextInt(1000));
+      }
+      _rrbs.forEach((array)-> {
+        for (int idx : indices) {
+          s += array.get(idx) - 42;
+          array = array.replace(idx, ft);
+        }
+        array.forEach((x)-> {
+          s += x;
+        });
+      });
+      return s;
     }
   }
 
@@ -861,6 +991,37 @@ abstract class ImmutableBenchmark {
   }
 
   @SuppressWarnings("unchecked")
+  private static class UnshiftOrPush1AtATimeBench extends BuildingBench {
+    public String name() { return "UnshiftOrPush1AtATimeBench  "; }
+    public void run() {
+      int x = 0;
+      for (ImmutableCollection<Integer> a1 : _top) {
+        int y = 0;
+        for (ImmutableCollection<Integer> a2 : _top) {
+          ImmutableCollection<Integer> both[] = new ImmutableCollection[1];
+          both[0] = a1;
+          a2.forEach((e)-> {
+            if ((both[0].size() & 1) == 0) {
+              both[0] = both[0].unshift(e);
+            } else {
+              both[0] = both[0].push(e);
+            }
+          });
+          int sum[] = new int[1];
+          both[0].forEach((e) -> {
+            sum[0] += e;
+          });
+          if (sum[0] != _sums.get(x) + _sums.get(y)) {
+            throw new RuntimeException();
+          }
+          y++;
+        }
+        x++;
+      }
+    }
+  }
+
+  @SuppressWarnings("unchecked")
   private static class PUnshifting1AtATimeBench extends BuildingBench {
     public String name() { return "PUnshifting1AtATimeBench "; }
     public void run() {
@@ -899,6 +1060,37 @@ abstract class ImmutableBenchmark {
           both[0] = a1;
           a2.forEach((e)-> {
             both[0] = both[0].insert(0, e);
+          });
+          int sum[] = new int[1];
+          both[0].forEach((e) -> {
+            sum[0] += e;
+          });
+          if (sum[0] != _sums.get(x) + _sums.get(y)) {
+            throw new RuntimeException();
+          }
+          y++;
+        }
+        x++;
+      }
+    }
+  }
+
+  @SuppressWarnings("unchecked")
+  private static class RrbUnshiftOrPush1AtATimeBench extends BuildingBench {
+    public String name() { return "RrbUnshiftOrPush1AtATimeBench "; }
+    public void run() {
+      int x = 0;
+      for (RrbTree<Integer> a1 : _rrbs) {
+        int y = 0;
+        for (RrbTree<Integer> a2 : _rrbs) {
+          RrbTree<Integer> both[] = new RrbTree.ImRrbt[1];
+          both[0] = a1;
+          a2.forEach((e)-> {
+            if ((both[0].size() & 1) == 0) {
+              both[0] = both[0].insert(0, e);
+            } else {
+              both[0] = both[0].append(e);
+            }
           });
           int sum[] = new int[1];
           both[0].forEach((e) -> {

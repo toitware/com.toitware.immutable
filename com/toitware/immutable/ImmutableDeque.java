@@ -25,6 +25,11 @@ public class ImmutableDeque<E> extends ImmutableCollection<E> {
     _offset = offset + _backing.size - old_backing_size;
   }
 
+  private ImmutableDeque(long offset, ImmutableArray<E> backing, boolean notrim) {
+    _backing = backing;
+    _offset = offset;
+  }
+
   public int size() {
     long s = _backing.size - _offset;
     if (s > Integer.MAX_VALUE) return Integer.MAX_VALUE;
@@ -45,35 +50,35 @@ public class ImmutableDeque<E> extends ImmutableCollection<E> {
 
   public ImmutableDeque<E> atPut(long index, E value) {
     if (index < 0) throw new IndexOutOfBoundsException();
-    return new ImmutableDeque<E>(_offset, _backing.atPut(index + _offset, value));
+    return new ImmutableDeque<E>(_offset, _backing.atPut(index + _offset, value), true);
   }
 
   public ImmutableDeque<E> push(E value) {
-    return new ImmutableDeque<E>(_offset, _backing.push(value));
+    return new ImmutableDeque<E>(_offset, _backing.push(value), true);
   }
 
   public ImmutableDeque<E> push(E value1, E value2) {
-    return new ImmutableDeque<E>(_offset, _backing.push(value1, value2));
+    return new ImmutableDeque<E>(_offset, _backing.push(value1, value2), true);
   }
 
   public ImmutableDeque<E> pushAll(E array[]) {
-    return new ImmutableDeque<E>(_offset, _backing.pushAll(array));
+    return new ImmutableDeque<E>(_offset, _backing.pushAll(array), true);
   }
 
   public ImmutableDeque<E> pushAll(Collection<? extends E> collection) {
-    return new ImmutableDeque<E>(_offset, _backing.pushAll(collection));
+    return new ImmutableDeque<E>(_offset, _backing.pushAll(collection), true);
   }
 
   public ImmutableDeque<E> unshift(E value) {
     if (_offset != 0) {
       // There is space in the trimmed left hand side of the backing, so we
       // can just write it there.
-      return new ImmutableDeque<E>(_offset - 1, _backing.atPut(_offset - 1, value));
+      return new ImmutableDeque<E>(_offset - 1, _backing.atPut(_offset - 1, value), true);
     }
 
     ImmutableArray<E> new_backing = _backing._newWithSpaceOnLeft();
     long extra_space = new_backing.size - _backing.size;
-    return new ImmutableDeque<E>(extra_space - 1, new_backing.atPut(extra_space - 1, value));
+    return new ImmutableDeque<E>(extra_space - 1, new_backing.atPut(extra_space - 1, value), true);
   }
 
   public ImmutableDeque<E> unshiftAll(E array[]) {
@@ -113,7 +118,7 @@ public class ImmutableDeque<E> extends ImmutableCollection<E> {
   public ImmutableDeque<E> trim(long by) {
     if (by > longSize()) throw new IndexOutOfBoundsException();
     if (by == longSize()) return new ImmutableDeque<E>(0, new ImmutableArray<E>());
-    return new ImmutableDeque<E>(_offset, _backing.trim(by));
+    return new ImmutableDeque<E>(_offset, _backing.trim(by), true);
   }
 
   public ListIterator<E> listIterator() {
@@ -143,7 +148,7 @@ public class ImmutableDeque<E> extends ImmutableCollection<E> {
   }
 
   public ImmutableDeque<E> subList(long from) {
-    if (_offset + from > _backing.size) throw new IndexOutOfBoundsException();
+    if (from < 0 || _offset + from > _backing.size) throw new IndexOutOfBoundsException();
     if (_offset + from == _backing.size) return new ImmutableDeque<E>(0, new ImmutableArray<E>());
     return new ImmutableDeque<E>(_offset + from, _backing);
   }

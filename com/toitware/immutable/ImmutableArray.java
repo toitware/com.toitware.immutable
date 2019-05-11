@@ -122,6 +122,8 @@ public class ImmutableArray<E> extends ImmutableCollection<E> {
     if (M == 8) {
       // Multiplying by 43 and shifting down by 7 is just a way to divide by 3.
       return ((63 - Long.numberOfLeadingZeros(index)) * 43) >> 7;
+    } else if (M == 32) {
+      return ((63 - Long.numberOfLeadingZeros(index)) * 13) >> 6;
     } else {
       assert SHIFT == 1 << SHIFTSHIFT;
       return (63 - Long.numberOfLeadingZeros(index)) >> SHIFTSHIFT;
@@ -248,27 +250,27 @@ public class ImmutableArray<E> extends ImmutableCollection<E> {
           _powers,
           _copyBut(_tail, (int)(index & MASK), value));
     }
-    long mask = (1 << ((power_posn + 1) * SHIFT)) - 1;
     return new ImmutableArray<E>(
         size,
         _copyBut(
             _powers,
             power_posn - 1,
-            _atPut(power_posn, value, index & mask, (Object[])_powers[power_posn - 1])),
+            _atPut(power_posn, value, index, (Object[])_powers[power_posn - 1])),
         _tail);
   }
 
   private Object[] _atPut(int tribbles, Object value, long index, Object array[]) {
-    int idx = (int)(index >>> (tribbles * SHIFT));
+    assert tribbles != 0;
+    if (tribbles == 0) return _copyBut(array, (int)(index & MASK), value);
+    int idx = (int)(index >>> (tribbles * SHIFT)) & MASK;
     // We need to check for subtrees that have been deleted because they are
     // the backing of a Deque.
-    if (array[(int)idx] == null) array[(int)idx] = new Object[M];
+    Object sub_array = array[(int)idx];
+    if (sub_array == null) sub_array = new Object[M];
     return _copyBut(
         array,
         idx,
-        tribbles == 0 ?
-            value :
-            _atPut(tribbles - 1, value, index - (idx << (tribbles * SHIFT)), (Object[])array[(int)idx]));
+        _atPut(tribbles - 1, value, index, (Object[])sub_array));
   }
 
   protected ImmutableArray<E> _newWithSpaceOnLeft() {
