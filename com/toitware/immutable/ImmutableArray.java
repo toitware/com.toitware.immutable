@@ -260,7 +260,6 @@ public class ImmutableArray<E> extends ImmutableCollection<E> {
   }
 
   private Object[] _atPut(int tribbles, Object value, long index, Object array[]) {
-    assert tribbles != 0;
     if (tribbles == 0) return _copyBut(array, (int)(index & MASK), value);
     int idx = (int)(index >>> (tribbles * SHIFT)) & MASK;
     // We need to check for subtrees that have been deleted because they are

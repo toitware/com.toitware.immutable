@@ -6,6 +6,8 @@ package com.toitware.immutable_test;
 import com.toitware.immutable.ImmutableHashMap;
 import java.util.Arrays;
 import java.util.HashMap;
+import java.util.Iterator;
+import java.util.ListIterator;
 import java.util.Map;
 import java.util.Random;
 
@@ -185,6 +187,11 @@ class ImmutableHashMapTest {
       assert(ten.get(k).equals("value" + k));
     }
     assert(i == '0' + 10);
+    for (Object v : ten.values()) {
+      String s = (String)v;
+      assert(s.length() == 6);
+      assert(s.indexOf("value") == 0);
+    }
 
     i = '0';
     for (Object v : ten.values()) {
@@ -205,6 +212,35 @@ class ImmutableHashMapTest {
       assert(ten.get(k).equals("value" + k));
     }
     assert(i == '0' + 10);
+
+    int j[] = { 0 };
+    removed.keySet().forEach((k) -> {
+      assert ("" + j[0]).equals(k);
+      if (j[0] == 3) j[0]++;
+      j[0]++;
+    });
+    assert(j[0] == 10);
+    j[0] = 0;
+    removed.keySet().iterator().forEachRemaining((k) -> {
+      assert ("" + j[0]).equals(k);
+      if (j[0] == 3) j[0]++;
+      j[0]++;
+    });
+    assert(j[0] == 10);
+    j[0] = 0;
+    removed.values().forEach((k) -> {
+      assert ("value" + j[0]).equals(k);
+      if (j[0] == 3) j[0]++;
+      j[0]++;
+    });
+    assert(j[0] == 10);
+    j[0] = 0;
+    removed.values().iterator().forEachRemaining((k) -> {
+      assert ("value" + j[0]).equals(k);
+      if (j[0] == 3) j[0]++;
+      j[0]++;
+    });
+    assert(j[0] == 10);
 
     i = '0';
     for (Object v : removed.values()) {
@@ -241,9 +277,35 @@ class ImmutableHashMapTest {
       assert(removed.get(k).equals(v));
       assert(v.length() == 6);
       assert(v.equals("value" + (i - '0')));
-      assert(v.charAt(5) == i++);
+      assert(v.charAt(5) == i);
+      i++;
     }
     assert(i == '0' + 10);
+
+    // Iterate the entries in most-recently-added first order.
+    ListIterator<Map.Entry<String, Object>> iterator =
+        removed.entries().listIterator(removed.size());
+    ListIterator<String> key_iterator = removed.keys().listIterator(removed.size());
+    ListIterator<Object> val_iterator = removed.values().listIterator(removed.size());
+    while (iterator.hasPrevious()) {
+      Map.Entry<String, Object> entry = iterator.previous();
+      String k = entry.getKey();
+      String v = (String)(entry.getValue());
+      i--;
+      if (i == '4') i--;
+      assert(k.equals(key_iterator.previous()));
+      assert(v.equals(val_iterator.previous()));
+      assert(k.length() == 1);
+      assert(k.charAt(0) == i);
+      assert(removed.get(k).equals("value" + k));
+      assert(removed.get(k).equals(v));
+      assert(v.length() == 6);
+      assert(v.equals("value" + (i - '0')));
+      assert(v.charAt(5) == i);
+    }
+    assert(i == '0');
+    assert(!key_iterator.hasPrevious());
+    assert(!val_iterator.hasPrevious());
 
     int iBox[] = new int[1];
     iBox[0] = '0';

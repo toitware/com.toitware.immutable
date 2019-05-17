@@ -16,10 +16,10 @@ bench:
 	CLASSPATH=.:$(PPATH):$(PAGPATH):$(KRUPATH) java com.toitware.immutable_test.ImmutableBenchmark
 
 test:
-	CLASSPATH=. javac -Xlint:unchecked com/toitware/immutable_test/ImmutableArrayTest.java
-	CLASSPATH=. java -ea com.toitware.immutable_test.ImmutableArrayTest
 	CLASSPATH=. javac -Xlint:unchecked com/toitware/immutable_test/ImmutableHashMapTest.java
 	CLASSPATH=. java -ea com.toitware.immutable_test.ImmutableHashMapTest
+	CLASSPATH=. javac -Xlint:unchecked com/toitware/immutable_test/ImmutableArrayTest.java
+	CLASSPATH=. java -ea com.toitware.immutable_test.ImmutableArrayTest
 
 mem:
 	CLASSPATH=.:$(PPATH):$(PAGPATH):$(KRUPATH) javac -Xlint:unchecked com/toitware/immutable_test/ImmutableMemoryUse.java

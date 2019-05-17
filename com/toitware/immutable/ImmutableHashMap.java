@@ -9,7 +9,10 @@ import java.util.AbstractMap;
 import java.util.Collection;
 import java.util.concurrent.atomic.AtomicIntegerArray;
 import java.util.function.BiConsumer;
+import java.util.function.Consumer;
 import java.util.Iterator;
+import java.util.List;
+import java.util.ListIterator;
 import java.util.Map;
 import java.util.Set;
 
@@ -20,11 +23,13 @@ import java.util.Set;
 public class ImmutableHashMap<K, V> {
   public ImmutableHashMap() {
     _size = 0;
-    _backing = null;
+    _backing = _empty_backing;
     _index = null;
   }
 
-  private ImmutableHashMap(int size, ImmutableArray<Object> backing, AtomicIntegerArray index) {
+  private static final ImmutableArray<Object>_empty_backing = new ImmutableArray<>();
+
+  private ImmutableHashMap(long size, ImmutableArray<Object> backing, AtomicIntegerArray index) {
     _size = size;
     _backing = backing;
     _index = index;
@@ -35,8 +40,9 @@ public class ImmutableHashMap<K, V> {
     return this;
   }
 
-  public int size() { return _size; }
-  private final int _size;
+  public int size() { return ImmutableCollection._longTruncator(_size); }
+  public long longSize() { return _size; }
+  private final long _size;
   // Immutable alternating keys and values in insertion order.
   private final ImmutableArray<Object> _backing;
   // An array of atomic integers, where each slot is a combination of hash
@@ -137,7 +143,7 @@ public class ImmutableHashMap<K, V> {
         // Backing is immutable so we need to create a new one.  This is an
         // O(log size) operation.
         ImmutableArray<Object> new_backing = _backing.atPut(_indexAt(slot) * 2, _DELETED_KEY);
-        new_backing = new_backing.atPut(_indexAt(slot) * 2 + 1, null);
+        new_backing = new_backing.atPut(_indexAt(slot) * 2 + 1, _DELETED_KEY);
         return new ImmutableHashMap<K, V>(_size - 1, new_backing, _index);
       }
       int new_slot = (slot + step) & _indexMask();
@@ -243,22 +249,68 @@ public class ImmutableHashMap<K, V> {
     }
   }
 
-  // Called entrySet to match the method in java.util.HashMap, but this is just a
-  // collection, which you can iterate over.  Iteration is in insertion order.
-  // Removing a key and reinserting it puts it at the end of the iteration order.
-  public Collection<Map.Entry<K, V>> entrySet() {
+  /**
+   * Create a collection of key-value pairs, which you can iterate over.  The
+   * collection is backed by the map and is immutable like the map.  Iteration
+   * is in insertion order (or reverse insertion order, using the listIterator
+   * method).  Removing a key and reinserting it puts it at the end of the
+   * iteration order.  This method is called entrySet to match the method in
+   * java.util.HashMap, but does not return a set.
+   * @return An iterable collection (not a set) of key-value pairs.
+   */
+  public IterableBothWays<Map.Entry<K, V>> entrySet() {
+    return entries();
+  }
+
+  /**
+   * Create a collection of key-value pairs, which you can iterate over.  The
+   * collection is backed by the map and is immutable like the map.  Iteration
+   * is in insertion order (or reverse insertion order, using the listIterator
+   * method).  Removing a key and reinserting it puts it at the end of the
+   * iteration order.
+   * @return An iterable collection of key-value pairs.
+   */
+  public IterableBothWays<Map.Entry<K, V>> entries() {
     return new KeyValues<K, V>(this);
   }
 
-  // Called keySet to match the method in java.util.HashMap, but this is just a
-  // collection, which you can iterate over.  Iteration is in insertion order.
-  // Removing a key and reinserting it puts it at the end of the iteration order.
-  public Collection<K> keySet() {
-    return new Keys<K>(this);
+  /**
+   * Create a collection of keys, which you can iterate over.  The collection
+   * is backed by the map and is immutable like the map.  Iteration is in
+   * insertion order (or reverse insertion order, using the listIterator
+   * method).  Removing a key and reinserting it puts it at the end of the
+   * iteration order.  This method is called keySet to match the method in
+   * java.util.HashMap, but does not return a set.
+   * @return An iterable collection (not a set) of keys.
+   */
+  public IterableBothWays<K> keySet() {
+    return keys();
   }
 
-  public Collection<V> values() {
-    return new Values<V>(this);
+  /**
+   * Create a collection of keys, which you can iterate over.  The collection
+   * is backed by the map and is immutable like the map.  Iteration is in
+   * insertion order (or reverse insertion order, using the listIterator
+   * method).  Removing a key and reinserting it puts it at the end of the
+   * iteration order.
+   * @return An iterable collection of keys.
+   */
+  public IterableBothWays<K> keys() {
+    return new KeyOrValueCollection<K>(_backing, _size, true);
+  }
+
+  /**
+   * Create a collection of values, which you can iterate over.  The collection
+   * is backed by the map and is immutable like the map.  Iteration is in
+   * insertion order (or reverse insertion order, using the listIterator
+   * method).  Removing a key-value pair and reinserting it puts it at the end
+   * of the iteration order.  Overwriting a value (actually creating a new map
+   * with a different value for an existing key) does not change the iteration
+   * order.
+   * @return An iterable collection of values.
+   */
+  public IterableBothWays<V> values() {
+    return new KeyOrValueCollection<V>(_backing, _size, false);
   }
 
   public boolean containsValue(V value) {
@@ -268,7 +320,8 @@ public class ImmutableHashMap<K, V> {
       if (k) {
         k = false;
       } else {
-        if ((o == null && value == null) || o.equals(value)) return true;
+        if (o != _DELETED_KEY &&
+            ((o == null && value == null) || o.equals(value))) return true;
         k = true;
       }
     }
@@ -325,105 +378,231 @@ public class ImmutableHashMap<K, V> {
     return new_map;
   }
 
-  private class Keys<K> extends AbstractCollection <K> {
-    private ImmutableHashMap<K, ?> _map;
-    public Keys(ImmutableHashMap<K, ?> map) {
-      _map = map;
-    }
-    public int size() { return _map.size(); }
-    public Iterator<K> iterator() { return new KeyIterator<K>(this); }
+  /**
+   * A collection that can be iterated over both ways.  Unlike a List there
+   * is no random access to arbitrary points in the collection.
+   */
+  public interface IterableBothWays<T> extends Collection<T> {
+    abstract public ListIterator<T> listIterator();
+
+    /**
+     * Returns an iterator with both next() and previous(), so that you can go
+     * both ways (insertion order or reverse insertion order).  The starting
+     * position must be at the start or at the end, other values are not
+     * supported.
+     * @param index Start position of the iterator.  Must be either 0 or the
+     * size of the underlying map.
+     * @return A ListIterator.
+     */
+    abstract public ListIterator<T> listIterator(long index);
   }
 
-  private class KeyIterator<K> implements Iterator<K> {
-    private int _index;
-    private int _limit;
-    private Iterator<Object> _backing_iterator;
+  protected class KeyOrValueCollection<T> extends AbstractCollection<T> implements IterableBothWays<T> {
+    private ImmutableArray<Object> _backing;
+    private long _size;
+    private boolean _keys_or_values;
 
-    public KeyIterator(Keys<K> keys) {
-      _index = 0;
-      _limit = keys._map.size();
-      ImmutableArray<Object> backing = keys._map._backing;
-      _backing_iterator = backing == null ? null : backing.iterator();
+    public KeyOrValueCollection(ImmutableArray<Object> backing, long size, boolean keys_or_values) {
+      _backing = backing;
+      _size = size;
+      _keys_or_values = keys_or_values;
+    }
+
+    public int size() { return ImmutableCollection._longTruncator(_size); }
+    public long longSize() { return _size; }
+
+    public Iterator<T> iterator() {
+      return new KeyOrValueIterator<T>(_backing, 0, _size, _keys_or_values);
+    }
+
+    public ListIterator<T> listIterator() {
+      return new KeyOrValueIterator<T>(_backing, 0, _size, _keys_or_values);
+    }
+
+    /**
+     * Returns an iterator with both next() and previous(), so that you can go
+     * both ways (insertion order or reverse iteration order).  The starting
+     * position must be at the start or at the end, other values are not
+     * supported.
+     * @param index Start position of the iterator.  Must be either 0 or the
+     * size of the underlying map.
+     */
+    public ListIterator<T> listIterator(long index) {
+      if (index != 0 && index != _size) {
+        throw new UnsupportedOperationException();
+      }
+      return new KeyOrValueIterator<T>(_backing, index, _size, _keys_or_values);
+    }
+
+    @SuppressWarnings("unchecked")
+    public void forEach(Consumer<? super T> action) {
+      boolean box[] = new boolean[] { _keys_or_values };
+      _backing.forEach((x) -> {
+        if (box[0]) {
+          box[0] = false;
+          if (_DELETED_KEY != x) {
+            action.accept((T)x);
+          }
+        } else {
+          box[0] = true;
+        }
+      });
+    }
+  }
+
+  private class KeyOrValueIterator<T> implements ListIterator<T> {
+    private long _index;
+    private long _limit;
+    private boolean _keys_or_values;
+    private ListIterator<Object> _backing_iterator;
+
+    public KeyOrValueIterator(ImmutableArray<Object> backing, long index, long size, boolean keys_or_values) {
+      assert index == 0 || index == size;
+      _index = index;
+      _keys_or_values = keys_or_values;
+      _limit = size;
+      _backing_iterator = backing.listIterator(index == 0 ? 0 : backing.size);
     }
 
     public boolean hasNext() {
       return _index < _limit;
     }
 
-    @SuppressWarnings("unchecked")
-    public K next() {
-      while (true) {
-        Object key = _backing_iterator.next();
-        _backing_iterator.next();  // Consume value.
-        if (_DELETED_KEY != key) {
-          _index++;
-          return (K)key;
-        }
-      }
-    }
-  }
-
-  private class Values<V> extends AbstractCollection <V> {
-    private ImmutableHashMap<?, V> _map;
-    public Values(ImmutableHashMap<?, V> map) {
-      _map = map;
-    }
-    public int size() { return _map.size(); }
-    public Iterator<V> iterator() { return new ValueIterator<V>(this); }
-  }
-
-  private class ValueIterator<V> implements Iterator<V> {
-    private int _index;
-    private int _limit;
-    private Iterator<Object> _backing_iterator;
-
-    public ValueIterator(Values<V> values) {
-      _index = 0;
-      _limit = values._map.size();
-      ImmutableArray<Object> backing = values._map._backing;
-      _backing_iterator = backing == null ? null : backing.iterator();
+    public boolean hasPrevious() {
+      return _index > 0;
     }
 
-    public boolean hasNext() {
-      return _index < _limit;
+    /**
+     * Not supported.
+     */
+    public void add(T t) {
+      throw new UnsupportedOperationException();
+    }
+
+    /**
+     * Not supported.
+     */
+    public void set(T t) {
+      throw new UnsupportedOperationException();
+    }
+
+    /**
+     * Not supported.
+     */
+    public void remove() {
+      throw new UnsupportedOperationException();
+    }
+
+    public int previousIndex() {
+      return ImmutableCollection._longTruncator(_index - 1);
+    }
+
+    public int nextIndex() {
+      return ImmutableCollection._longTruncator(_index);
     }
 
     @SuppressWarnings("unchecked")
-    public V next() {
+    public T next() {
       while (true) {
         Object key = _backing_iterator.next();
-        V value = (V)_backing_iterator.next();
+        Object value = _backing_iterator.next();
         if (_DELETED_KEY != key) {
           _index++;
-          return value;
+          return _keys_or_values ? (T)key : (T)value;
         }
       }
     }
+
+    @SuppressWarnings("unchecked")
+    public T previous() {
+      while (true) {
+        Object value = _backing_iterator.previous();
+        Object key = _backing_iterator.previous();
+        if (_DELETED_KEY != key) {
+          _index--;
+          return _keys_or_values ? (T)key : (T)value;
+        }
+      }
+    }
+
+    @SuppressWarnings("unchecked")
+    public void forEachRemaining(Consumer<? super T> action) {
+      boolean box[] = new boolean[] { _keys_or_values };
+      _backing_iterator.forEachRemaining((x) -> {
+        if (box[0]) {
+          box[0] = false;
+          if (_DELETED_KEY != x) {
+            action.accept((T)x);
+          }
+        } else {
+          box[0] = true;
+        }
+      });
+    }
   }
 
-  private class KeyValues<K, V> extends AbstractCollection<Map.Entry<K, V>> {
+  protected class KeyValues<K, V> extends AbstractCollection<Map.Entry<K, V>> implements IterableBothWays<Map.Entry<K, V>> {
     private ImmutableHashMap<K, V> _map;
     public KeyValues(ImmutableHashMap<K, V> map) {
       _map = map;
     }
     public int size() { return _map.size(); }
-    public Iterator<Map.Entry<K, V>> iterator() { return new KeyValueIterator<K, V>(this); }
+    public long longSize() { return _map.longSize(); }
+    public Iterator<Map.Entry<K, V>> iterator() { return new KeyValueIterator<K, V>(this, 0); }
+    public ListIterator<Map.Entry<K, V>> listIterator() { return new KeyValueIterator<K, V>(this, 0); }
+    public ListIterator<Map.Entry<K, V>> listIterator(long index) { return new KeyValueIterator<K, V>(this, index); }
   }
 
-  private class KeyValueIterator<K, V> implements Iterator<Map.Entry<K, V>> {
-    private int _index;
-    private int _limit;
-    private Iterator<Object> _backing_iterator;
+  private class KeyValueIterator<K, V> implements ListIterator<Map.Entry<K, V>> {
+    private long _index;
+    private long _limit;
+    private ListIterator<Object> _backing_iterator;
 
-    public KeyValueIterator(KeyValues<K, V> keyValues) {
-      _index = 0;
+    public KeyValueIterator(KeyValues<K, V> keyValues, long index) {
       _limit = keyValues._map.size();
+      if (index != 0 && index != _limit) {
+        throw new UnsupportedOperationException();
+      }
+      _index = index;
       ImmutableArray<Object> backing = keyValues._map._backing;
-      _backing_iterator = backing == null ? null : backing.iterator();
+      _backing_iterator = backing == null ? null : backing.listIterator(index == 0 ? 0 : backing.longSize());
     }
 
     public boolean hasNext() {
       return _index < _limit;
+    }
+
+    public boolean hasPrevious() {
+      return _index > 0;
+    }
+
+    public int nextIndex() {
+      return ImmutableCollection._longTruncator(_index);
+    }
+
+    public int previousIndex() {
+      return ImmutableCollection._longTruncator(_index - 1);
+    }
+
+    /**
+     * Not supported.
+     */
+    public void add(Map.Entry<K, V> entry) {
+      throw new UnsupportedOperationException();
+    }
+
+    /**
+     * Not supported.
+     */
+    public void set(Map.Entry<K, V> entry) {
+      throw new UnsupportedOperationException();
+    }
+
+    /**
+     * Not supported.
+     */
+    public void remove() {
+      throw new UnsupportedOperationException();
     }
 
     @SuppressWarnings("unchecked")
@@ -435,6 +614,18 @@ public class ImmutableHashMap<K, V> {
           _index++;
           return new AbstractMap.SimpleImmutableEntry<K, V>((K)key, value);
         }
+      }
+    }
+
+    @SuppressWarnings("unchecked")
+    public Map.Entry<K, V> previous() {
+      while (true) {
+        Object value = _backing_iterator.previous();
+        Object key = _backing_iterator.previous();
+        if (_DELETED_KEY != key) {
+          _index--;
+          return new AbstractMap.SimpleImmutableEntry<K, V>((K)key, (V)value);
+        } 
       }
     }
   }
