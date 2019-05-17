@@ -275,28 +275,16 @@ public class ImmutableHashMap<K, V> {
   }
 
   /**
-   * Create a collection of keys, which you can iterate over.  The collection
+   * Create a set of keys, which you can iterate over.  The set
    * is backed by the map and is immutable like the map.  Iteration is in
    * insertion order (or reverse insertion order, using the listIterator
    * method).  Removing a key and reinserting it puts it at the end of the
-   * iteration order.  This method is called keySet to match the method in
-   * java.util.HashMap, but does not return a set.
-   * @return An iterable collection (not a set) of keys.
+   * iteration order.  The returned set does not implement mutation methods
+   * like remove and add.
+   * @return A set of keys.
    */
-  public IterableBothWays<K> keySet() {
-    return keys();
-  }
-
-  /**
-   * Create a collection of keys, which you can iterate over.  The collection
-   * is backed by the map and is immutable like the map.  Iteration is in
-   * insertion order (or reverse insertion order, using the listIterator
-   * method).  Removing a key and reinserting it puts it at the end of the
-   * iteration order.
-   * @return An iterable collection of keys.
-   */
-  public IterableBothWays<K> keys() {
-    return new KeyOrValueCollection<K>(_backing, _size, true);
+  public SetIterableBothWays<K> keySet() {
+    return new KeyCollection<K>(this);
   }
 
   /**
@@ -397,6 +385,9 @@ public class ImmutableHashMap<K, V> {
     abstract public ListIterator<T> listIterator(long index);
   }
 
+  public interface SetIterableBothWays<T> extends IterableBothWays<T>, Set<T> {
+  }
+
   protected class KeyOrValueCollection<T> extends AbstractCollection<T> implements IterableBothWays<T> {
     private ImmutableArray<Object> _backing;
     private long _size;
@@ -447,6 +438,20 @@ public class ImmutableHashMap<K, V> {
           box[0] = true;
         }
       });
+    }
+  }
+
+  protected class KeyCollection<K> extends KeyOrValueCollection<K> implements SetIterableBothWays<K> {
+    private ImmutableHashMap<K, ?> _map;
+
+    public KeyCollection(ImmutableHashMap<K, ?> map) {
+      super(map._backing, map.longSize(), true);
+      _map = map;
+    }
+
+    @SuppressWarnings("unchecked")
+    public boolean contains(Object key) {
+      return _map.containsKey((K)key);
     }
   }
 

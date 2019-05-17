@@ -10,6 +10,7 @@ import java.util.Iterator;
 import java.util.ListIterator;
 import java.util.Map;
 import java.util.Random;
+import java.util.Set;
 
 class ImmutableHashMapTest {
   public static void main(String args[]) {
@@ -285,12 +286,14 @@ class ImmutableHashMapTest {
     // Iterate the entries in most-recently-added first order.
     ListIterator<Map.Entry<String, Object>> iterator =
         removed.entries().listIterator(removed.size());
-    ListIterator<String> key_iterator = removed.keys().listIterator(removed.size());
+    Set<String> keys = removed.keySet();
+    ListIterator<String> key_iterator = removed.keySet().listIterator(removed.size());
     ListIterator<Object> val_iterator = removed.values().listIterator(removed.size());
     while (iterator.hasPrevious()) {
       Map.Entry<String, Object> entry = iterator.previous();
       String k = entry.getKey();
       String v = (String)(entry.getValue());
+      assert(keys.contains(k));
       i--;
       if (i == '4') i--;
       assert(k.equals(key_iterator.previous()));
