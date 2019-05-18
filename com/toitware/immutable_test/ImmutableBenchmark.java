@@ -19,9 +19,11 @@ import java.util.ListIterator;
 import java.util.Random;
 import java.util.Set;
 
+import org.pcollections.HashPMap;
+import org.pcollections.HashTreePMap;
 import org.pcollections.PCollection;
-import org.pcollections.TreePVector;
 import org.pcollections.PVector;
+import org.pcollections.TreePVector;
 
 import org.organicdesign.fp.collections.ImList;
 import org.organicdesign.fp.collections.ImMap;
@@ -36,6 +38,9 @@ abstract class ImmutableBenchmark {
     new MapForEachBench().runs();
     new MapForKeysBench().runs();
     new MapForValsBench().runs();
+    new PMapForEachBench().runs();
+    new PMapForKeysBench().runs();
+    new PMapForValsBench().runs();
     new PagMapForEachBench().runs();
     new PagMapForKeysBench().runs();
     new PagMapForValsBench().runs();
@@ -1674,26 +1679,31 @@ abstract class ImmutableBenchmark {
     public long sum() { return _sum; }
     protected ImmutableArray<ImmutableHashMap<String, Integer>> _top;
     protected ImList<ImMap<String, Integer>> _paguro;
+    protected PVector<HashPMap<String, Integer>> _pmaps;
 
     public void setup() {
       Random random = new Random(1034210342);
       _top = new ImmutableArray<>();
       _paguro = PersistentVector.<ImMap<String, Integer>>empty();
+      _pmaps = TreePVector.<HashPMap<String, Integer>>empty();
       long sum = 0;
       for (int i = 0; i < 1000; i++) {
         ImmutableHashMap<String, Integer> a = new ImmutableHashMap<>();
         PersistentHashMap<String, Integer> p = PersistentHashMap.<String, Integer>empty();
+        HashPMap<String, Integer> pm = HashTreePMap.<String, Integer>empty();
         for (int j = 0; j < 1000; j++) {
           int x = random.nextInt(2000);
           String key = "key " + x;
           if (!a.containsKey(key)) {
             a = a.put(key, x);
             p = p.assoc(key, x);
+            pm = pm.plus(key, x);
             sum += x;
           }
         }
         _top = _top.push(a);
         _paguro = _paguro.append(p);
+        _pmaps = _pmaps.plus(pm);
       }
       _sum = sum;
     }
@@ -1730,6 +1740,45 @@ abstract class ImmutableBenchmark {
     public void run() {
       long answer[] = new long[] { 0 };
       for (ImmutableHashMap<String, Integer> map : _top) {
+        for (Integer value : map.values()) {
+          answer[0] += value;
+        }
+      }
+      if (answer[0] != sum()) throw new RuntimeException();
+    }
+  }
+
+  private static class PMapForEachBench extends MapIterationBench {
+    public String name() { return "PMapForEachBench    "; }
+    public void run() {
+      long answer[] = new long[] { 0 };
+      for (HashPMap<String, Integer> map : _pmaps) {
+        map.forEach((String key, Integer value) -> {
+          answer[0] += value;
+        });
+      }
+      if (answer[0] != sum()) throw new RuntimeException();
+    }
+  }
+
+  private static class PMapForKeysBench extends MapIterationBench {
+    public String name() { return "PMapForKeysBench      "; }
+    public void run() {
+      long answer[] = new long[] { 0 };
+      for (HashPMap<String, Integer> map : _pmaps) {
+        for (String key : map.keySet()) {
+          answer[0] += map.get(key);
+        }
+      }
+      if (answer[0] != sum()) throw new RuntimeException();
+    }
+  }
+
+  private static class PMapForValsBench extends MapIterationBench {
+    public String name() { return "PMapForValsBench      "; }
+    public void run() {
+      long answer[] = new long[] { 0 };
+      for (HashPMap<String, Integer> map : _pmaps) {
         for (Integer value : map.values()) {
           answer[0] += value;
         }

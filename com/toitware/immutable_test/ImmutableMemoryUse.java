@@ -16,18 +16,33 @@ import com.toitware.immutable.RebuildIterator;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Iterator;
+import java.util.HashMap;
 import java.util.ListIterator;
 import java.util.Random;
 import org.pcollections.TreePVector;
+import org.pcollections.HashTreePMap;
+import org.pcollections.HashPMap;
 
 abstract class ImmutableMemoryUse {
   public static void main(String args[]) {
+    new JavaUtilHashMapMemoryUse(0).runs();
+    new JavaUtilHashMapMemoryUse(1).runs();
+    new JavaUtilHashMapMemoryUse(4).runs();
+    new JavaUtilHashMapMemoryUse(16).runs();
+    new JavaUtilHashMapMemoryUse(64).runs();
+    new JavaUtilHashMapMemoryUse(256).runs();
     new ImmutableHashMapMemoryUse(0).runs();
     new ImmutableHashMapMemoryUse(1).runs();
     new ImmutableHashMapMemoryUse(4).runs();
     new ImmutableHashMapMemoryUse(16).runs();
     new ImmutableHashMapMemoryUse(64).runs();
     new ImmutableHashMapMemoryUse(256).runs();
+    new PHashMapMemoryUse(0).runs();
+    new PHashMapMemoryUse(1).runs();
+    new PHashMapMemoryUse(4).runs();
+    new PHashMapMemoryUse(16).runs();
+    new PHashMapMemoryUse(64).runs();
+    new PHashMapMemoryUse(256).runs();
     new PaguroHashMapMemoryUse(0).runs();
     new PaguroHashMapMemoryUse(1).runs();
     new PaguroHashMapMemoryUse(4).runs();
@@ -161,6 +176,34 @@ abstract class ImmutableMemoryUse {
     public String name() { return "ImmutableHashMap[" + elements + "]"; }
   }
 
+  private static class JavaUtilHashMapMemoryUse extends ImmutableMemoryUse {
+    int elements;
+    int length;
+
+    JavaUtilHashMapMemoryUse(int e) {
+      elements = e;
+    }
+
+    public void setup(int size, int backing_size) {
+      holder = new Object[backing_size];
+      length = size;
+      churn();
+    }
+
+    public void churn() {
+      Integer x = 42;
+      for (int i = 0; i < length; i++) {
+        HashMap<String, Integer> a = new HashMap<>();
+        for (int j = 0; j < elements; j++) {
+          a.put(strings[j], x);
+        }
+        holder[i] = a;
+      }
+    }
+
+    public String name() { return "JavaUtilHashMap[" + elements + "]"; }
+  }
+
   private static class PaguroHashMapMemoryUse extends ImmutableMemoryUse {
     int elements;
     int length;
@@ -187,6 +230,34 @@ abstract class ImmutableMemoryUse {
     }
 
     public String name() { return "PaguroHashMap[" + elements + "]"; }
+  }
+
+  private static class PHashMapMemoryUse extends ImmutableMemoryUse {
+    int elements;
+    int length;
+
+    PHashMapMemoryUse(int e) {
+      elements = e;
+    }
+
+    public void setup(int size, int backing_size) {
+      holder = new Object[backing_size];
+      length = size;
+      churn();
+    }
+
+    public void churn() {
+      Integer x = 42;
+      for (int i = 0; i < length; i++) {
+        HashPMap<String, Integer> a = HashTreePMap.<String, Integer>empty();
+        for (int j = 0; j < elements; j++) {
+          a = a.plus(strings[j], x);
+        }
+        holder[i] = a;
+      }
+    }
+
+    public String name() { return "PHashMap[" + elements + "]"; }
   }
 
   private static class PCollectionsMemoryUse extends ImmutableMemoryUse {
