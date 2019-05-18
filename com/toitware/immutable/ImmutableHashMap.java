@@ -33,7 +33,11 @@ public class ImmutableHashMap<K, V> {
     _size = size;
     _backing = backing;
     _index = index;
-    assert(((index.length() - 1) & (index.length()  - 2)) == 0);
+    if (index != null) {
+      assert(((index.length() - 1) & (index.length()  - 2)) == 0);
+    } else {
+      assert _backing.longSize() <= 2;
+    }
   }
 
   public Object clone() {
@@ -99,6 +103,7 @@ public class ImmutableHashMap<K, V> {
     // Backing is immutable so we need to create a new one.  This is an
     // O(log size) operation.
     int index = (int)(result - INDEX_OFFSET);
+    if (_size == 1) return new ImmutableHashMap<K, V>();
     ImmutableArray<Object> new_backing = _backing.atPut(index * 2, _DELETED_KEY);
     new_backing = new_backing.atPut(index * 2 + 1, _DELETED_KEY);
     return new ImmutableHashMap<K, V>(_size - 1, new_backing, _index);
@@ -153,6 +158,25 @@ public class ImmutableHashMap<K, V> {
   }
 
   private long _find(long backing_size, K key, V value, boolean only_if_present, boolean check_for_oversized_backing) {
+    if (_index == null) return _find0(backing_size, key, value, only_if_present);
+    return _findGeneric(backing_size, key, value, only_if_present, check_for_oversized_backing);
+  }
+
+  // Trivial case - for 0-2 elements there is no index.
+  @SuppressWarnings("unchecked")
+  private long _find0(long backing_size, K key, V value, boolean only_if_present) {
+    for (long i = 0; i < backing_size; i += 2) {
+      K cand = (K)_backing.get(i);
+      if (key == null && cand == null || cand.equals(key)) {
+        return INDEX_OFFSET + (i >> 1);
+      }
+    }
+    if (only_if_present) return DO_NOTHING;
+    if (backing_size < 2) return APPEND;
+    return REBUILD;
+  }
+
+  private long _findGeneric(long backing_size, K key, V value, boolean only_if_present, boolean check_for_oversized_backing) {
     if (_index == null) {
       if (only_if_present) return DO_NOTHING;
       // A new ImmutableHashMap with no slots must be 'rebuilt' before entries
@@ -259,7 +283,6 @@ public class ImmutableHashMap<K, V> {
   }
 
   public boolean containsValue(V value) {
-    if (_index == null) return false;
     boolean k = true;
     for (Object o : _backing) {
       if (k) {
@@ -290,7 +313,7 @@ public class ImmutableHashMap<K, V> {
     boolean squeeze = _backing.size() == 0 || (_backing.size > _size * 2 + 4 && _backing.size > (long)(_size * 2 * 1.2));
     AtomicIntegerArray new_index = new AtomicIntegerArray(index_size + 1);
     ImmutableHashMap<K, V> new_map = squeeze ?
-        new ImmutableHashMap<K, V>(0, new ImmutableArray<>(), new_index) :
+        new ImmutableHashMap<K, V>(0, _empty_backing, new_index) :
         new ImmutableHashMap<K, V>(_size, _backing, new_index);
     if (_backing != null) {
       long count_box[] = new long[1];
