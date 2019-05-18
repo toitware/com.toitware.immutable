@@ -5,11 +5,13 @@
 package com.toitware.immutable_test;
 
 import org.organicdesign.fp.collections.ImList;
+import org.organicdesign.fp.collections.PersistentHashMap;
 import org.organicdesign.fp.collections.PersistentVector;
 import org.organicdesign.fp.collections.RrbTree;
 import com.toitware.immutable.ImmutableArray;
 import com.toitware.immutable.ImmutableCollection;
 import com.toitware.immutable.ImmutableDeque;
+import com.toitware.immutable.ImmutableHashMap;
 import com.toitware.immutable.RebuildIterator;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -20,6 +22,18 @@ import org.pcollections.TreePVector;
 
 abstract class ImmutableMemoryUse {
   public static void main(String args[]) {
+    new ImmutableHashMapMemoryUse(0).runs();
+    new ImmutableHashMapMemoryUse(1).runs();
+    new ImmutableHashMapMemoryUse(4).runs();
+    new ImmutableHashMapMemoryUse(16).runs();
+    new ImmutableHashMapMemoryUse(64).runs();
+    new ImmutableHashMapMemoryUse(256).runs();
+    new PaguroHashMapMemoryUse(0).runs();
+    new PaguroHashMapMemoryUse(1).runs();
+    new PaguroHashMapMemoryUse(4).runs();
+    new PaguroHashMapMemoryUse(16).runs();
+    new PaguroHashMapMemoryUse(64).runs();
+    new PaguroHashMapMemoryUse(256).runs();
     new ImmutableArrayMemoryUse(0).runs();
     new ImmutableArrayMemoryUse(1).runs();
     new ImmutableArrayMemoryUse(4).runs();
@@ -55,6 +69,14 @@ abstract class ImmutableMemoryUse {
   static protected final int SIZE = 10000;
 
   protected Object holder[];
+  protected String strings[];
+
+  public ImmutableMemoryUse() {
+    strings = new String[1000];
+    for (int i = 0; i < strings.length; i++) {
+      strings[i] = "key " + i;
+    }
+  }
 
   void runs() {
     long smallHeapSize = 10000000000000000L;
@@ -109,6 +131,62 @@ abstract class ImmutableMemoryUse {
     }
 
     public String name() { return "ImmutableArray[" + elements + "]"; }
+  }
+
+  private static class ImmutableHashMapMemoryUse extends ImmutableMemoryUse {
+    int elements;
+    int length;
+
+    ImmutableHashMapMemoryUse(int e) {
+      elements = e;
+    }
+
+    public void setup(int size, int backing_size) {
+      holder = new Object[backing_size];
+      length = size;
+      churn();
+    }
+
+    public void churn() {
+      Integer x = 42;
+      for (int i = 0; i < length; i++) {
+        ImmutableHashMap<String, Integer> a = new ImmutableHashMap<>();
+        for (int j = 0; j < elements; j++) {
+          a = a.put(strings[j], x);
+        }
+        holder[i] = a;
+      }
+    }
+
+    public String name() { return "ImmutableHashMap[" + elements + "]"; }
+  }
+
+  private static class PaguroHashMapMemoryUse extends ImmutableMemoryUse {
+    int elements;
+    int length;
+
+    PaguroHashMapMemoryUse(int e) {
+      elements = e;
+    }
+
+    public void setup(int size, int backing_size) {
+      holder = new Object[backing_size];
+      length = size;
+      churn();
+    }
+
+    public void churn() {
+      Integer x = 42;
+      for (int i = 0; i < length; i++) {
+        PersistentHashMap<String, Integer> a = PersistentHashMap.<String, Integer>empty();
+        for (int j = 0; j < elements; j++) {
+          a = a.assoc(strings[j], x);
+        }
+        holder[i] = a;
+      }
+    }
+
+    public String name() { return "PaguroHashMap[" + elements + "]"; }
   }
 
   private static class PCollectionsMemoryUse extends ImmutableMemoryUse {

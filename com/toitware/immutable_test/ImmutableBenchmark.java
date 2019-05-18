@@ -7,6 +7,7 @@ package com.toitware.immutable_test;
 import com.toitware.immutable.ImmutableArray;
 import com.toitware.immutable.ImmutableCollection;
 import com.toitware.immutable.ImmutableDeque;
+import com.toitware.immutable.ImmutableHashMap;
 import com.toitware.immutable.RebuildIterator;
 
 import java.util.ArrayList;
@@ -23,6 +24,8 @@ import org.pcollections.TreePVector;
 import org.pcollections.PVector;
 
 import org.organicdesign.fp.collections.ImList;
+import org.organicdesign.fp.collections.ImMap;
+import org.organicdesign.fp.collections.PersistentHashMap;
 import org.organicdesign.fp.collections.PersistentVector;
 import org.organicdesign.fp.collections.RrbTree;
 import org.organicdesign.fp.collections.UnmodIterable;
@@ -30,6 +33,12 @@ import org.organicdesign.fp.collections.UnmodList;
 
 abstract class ImmutableBenchmark {
   public static void main(String args[]) {
+    new MapForEachBench().runs();
+    new MapForKeysBench().runs();
+    new MapForValsBench().runs();
+    new PagMapForEachBench().runs();
+    new PagMapForKeysBench().runs();
+    new PagMapForValsBench().runs();
     new RandomAccess().runs();
     new PRandomAccess().runs();
     new PagRandomAccess().runs();
@@ -1659,4 +1668,112 @@ abstract class ImmutableBenchmark {
     }
   }
   */
+
+  private static abstract class MapIterationBench extends ImmutableBenchmark {
+    private long _sum;
+    public long sum() { return _sum; }
+    protected ImmutableArray<ImmutableHashMap<String, Integer>> _top;
+    protected ImList<ImMap<String, Integer>> _paguro;
+
+    public void setup() {
+      Random random = new Random(1034210342);
+      _top = new ImmutableArray<>();
+      _paguro = PersistentVector.<ImMap<String, Integer>>empty();
+      long sum = 0;
+      for (int i = 0; i < 1000; i++) {
+        ImmutableHashMap<String, Integer> a = new ImmutableHashMap<>();
+        PersistentHashMap<String, Integer> p = PersistentHashMap.<String, Integer>empty();
+        for (int j = 0; j < 1000; j++) {
+          int x = random.nextInt(2000);
+          String key = "key " + x;
+          if (!a.containsKey(key)) {
+            a = a.put(key, x);
+            p = p.assoc(key, x);
+            sum += x;
+          }
+        }
+        _top = _top.push(a);
+        _paguro = _paguro.append(p);
+      }
+      _sum = sum;
+    }
+  }
+
+  private static class MapForEachBench extends MapIterationBench {
+    public String name() { return "MapForEachBench       "; }
+    public void run() {
+      long answer[] = new long[] { 0 };
+      for (ImmutableHashMap<String, Integer> map : _top) {
+        map.forEach((String key, Integer value) -> {
+          answer[0] += value;
+        });
+      }
+      if (answer[0] != sum()) throw new RuntimeException();
+    }
+  }
+
+  private static class MapForKeysBench extends MapIterationBench {
+    public String name() { return "MapForKeysBench       "; }
+    public void run() {
+      long answer[] = new long[] { 0 };
+      for (ImmutableHashMap<String, Integer> map : _top) {
+        for (String key : map.keySet()) {
+          answer[0] += map.get(key);
+        }
+      }
+      if (answer[0] != sum()) throw new RuntimeException();
+    }
+  }
+
+  private static class MapForValsBench extends MapIterationBench {
+    public String name() { return "MapForValsBench       "; }
+    public void run() {
+      long answer[] = new long[] { 0 };
+      for (ImmutableHashMap<String, Integer> map : _top) {
+        for (Integer value : map.values()) {
+          answer[0] += value;
+        }
+      }
+      if (answer[0] != sum()) throw new RuntimeException();
+    }
+  }
+
+  private static class PagMapForEachBench extends MapIterationBench {
+    public String name() { return "PagMapForEachBench    "; }
+    public void run() {
+      long answer[] = new long[] { 0 };
+      for (ImMap<String, Integer> map : _paguro) {
+        map.forEach((String key, Integer value) -> {
+          answer[0] += value;
+        });
+      }
+      if (answer[0] != sum()) throw new RuntimeException();
+    }
+  }
+
+  private static class PagMapForKeysBench extends MapIterationBench {
+    public String name() { return "PagMapForKeysBench    "; }
+    public void run() {
+      long answer[] = new long[] { 0 };
+      for (ImMap<String, Integer> map : _paguro) {
+        for (String key : map.keySet()) {
+          answer[0] += map.get(key);
+        }
+      }
+      if (answer[0] != sum()) throw new RuntimeException();
+    }
+  }
+
+  private static class PagMapForValsBench extends MapIterationBench {
+    public String name() { return "PagMapForValsBench    "; }
+    public void run() {
+      long answer[] = new long[] { 0 };
+      for (ImMap<String, Integer> map : _paguro) {
+        for (Integer value : map.values()) {
+          answer[0] += value;
+        }
+      }
+      if (answer[0] != sum()) throw new RuntimeException();
+    }
+  }
 }

@@ -12,7 +12,7 @@ doc:
 	(mkdir -p docs; cd docs; CLASSPATH=..:../$(PPATH):../$(PAGPATH):../$(KRUPATH) javadoc -public com.toitware.immutable org.pcollections org.organicdesign.fp.collections)
 
 bench:
-	CLASSPATH=.:$(PPATH):$(PAGPATH):$(KRUPATH) javac -Xlint:unchecked com/toitware/immutable_test/ImmutableBenchmark.java
+	CLASSPATH=.:$(PPATH):$(PAGPATH):$(KRUPATH) javac -Xlint:deprecation -Xlint:unchecked com/toitware/immutable_test/ImmutableBenchmark.java
 	CLASSPATH=.:$(PPATH):$(PAGPATH):$(KRUPATH) java com.toitware.immutable_test.ImmutableBenchmark
 
 test:
