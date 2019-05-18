@@ -71,18 +71,13 @@ public class ImmutableHashMap<K, V> {
   private boolean _matches(K key, int hash, int slot) {
     assert(!_isFree(slot));
     if ((hash & _HASH_MASK) != _hashAt(slot)) return false;
-    //System.out.println("hash matched");
     int index = _indexAt(slot) * 2;
-    //System.out.println("Trying index " + index + " on backing sized " + _backing.size);
     if (index >= _backing.size) return false;
-    //System.out.println("index in range");
     if (!_backing.get(index).equals(key)) return false;
-    //System.out.println("equals succeded");
     return true;
   }
   private boolean _takeFreeSlot(int index, int hash, int slot) {
     boolean success = _index.compareAndSet(slot + 1, 0, _combination(hash, index));
-    //System.out.println("Trying to take free slot at " + slot + " success " + success);
     if (success) _index.incrementAndGet(0);
     return success;
   }
@@ -98,59 +93,15 @@ public class ImmutableHashMap<K, V> {
     return getOrDefault(key, null);
   }
 
-  @SuppressWarnings("unchecked")
-  public V getOrDefault(K key, V default_value) {
-    if (_index == null) return default_value;  // Empty map.
-    int hash = key.hashCode();
-    int slot = hash & _indexMask();
-    int step = 1;
-    while (true) {
-      if (_isFree(slot)) return default_value;  // No match.
-      if (_matches(key, hash, slot)) {
-        return (V)_backing.get(_indexAt(slot) * 2 + 1);
-      }
-      int new_slot = (slot + step) & _indexMask();
-      step++;
-      if (slot == new_slot) return default_value;  // Searched full table.
-      slot = new_slot;
-    }
-  }
-
-  public boolean containsKey(K key) {
-    if (_index == null) return false;  // Empty map.
-    int hash = key.hashCode();
-    int slot = hash & _indexMask();
-    int step = 1;
-    while (true) {
-      //System.out.println("containsKey probes " + slot);
-      if (_isFree(slot)) return false;  // No match.
-      if (_matches(key, hash, slot)) return true;
-      int new_slot = (slot + step) & _indexMask();
-      step++;
-      if (slot == new_slot) return false;  // Searched full table.
-      slot = new_slot;
-    }
-  }
-
   public ImmutableHashMap<K, V> remove(K key) {
-    if (_index == null) return this;  // Empty map.
-    int hash = key.hashCode();
-    int slot = hash & _indexMask();
-    int step = 1;
-    while (true) {
-      if (_isFree(slot)) return this;  // No match.
-      if (_matches(key, hash, slot)) {
-        // Backing is immutable so we need to create a new one.  This is an
-        // O(log size) operation.
-        ImmutableArray<Object> new_backing = _backing.atPut(_indexAt(slot) * 2, _DELETED_KEY);
-        new_backing = new_backing.atPut(_indexAt(slot) * 2 + 1, _DELETED_KEY);
-        return new ImmutableHashMap<K, V>(_size - 1, new_backing, _index);
-      }
-      int new_slot = (slot + step) & _indexMask();
-      step++;
-      if (slot == new_slot) return this;  // Searched full table.
-      slot = new_slot;
-    }
+    long result = _find(_backing.size, key, null, true, false);
+    if (result < INDEX_OFFSET) return this;  // Not found.
+    // Backing is immutable so we need to create a new one.  This is an
+    // O(log size) operation.
+    int index = (int)(result - INDEX_OFFSET);
+    ImmutableArray<Object> new_backing = _backing.atPut(index * 2, _DELETED_KEY);
+    new_backing = new_backing.atPut(index * 2 + 1, _DELETED_KEY);
+    return new ImmutableHashMap<K, V>(_size - 1, new_backing, _index);
   }
 
   public ImmutableHashMap<K, V> put(K key, V value) {
@@ -165,13 +116,26 @@ public class ImmutableHashMap<K, V> {
     return _put(key, value, false, true);
   }
 
+  public boolean containsKey(K key) {
+    long result = _find(_backing.size, key, null, true, false);
+    return result >= INDEX_OFFSET;
+  }
+
+  @SuppressWarnings("unchecked")
+  public V getOrDefault(K key, V default_value) {
+    long result = _find(_backing.size, key, null, true, false);
+    if (result < INDEX_OFFSET) return default_value;
+    int index = (int)(result - INDEX_OFFSET);
+    return (V)_backing.get(index * 2 + 1);
+  }
+
   static final long REBUILD = 0;       // Rebuild index and retry.
   static final long APPEND = 1;        // Append key-value pair.
   static final long DO_NOTHING = 2;    // Return this (no change).
   static final long INDEX_OFFSET = 3;  // Value was overwritten at given index.
 
   private ImmutableHashMap<K, V> _put(K key, V value, boolean only_if_absent, boolean only_if_present) {
-    long result = _insert(_backing == null ? 0 : _backing.size, key, value, only_if_absent, only_if_present, true);
+    long result = _find(_backing.size, key, value, only_if_present, true);
     if (result == REBUILD) {
       return _rebuild_index()._put(key, value, only_if_absent, only_if_present);
     } else if (result == APPEND) {
@@ -181,18 +145,18 @@ public class ImmutableHashMap<K, V> {
     } else if (result == DO_NOTHING) {
       return this;
     } else {
+      if (only_if_absent) return this;
       long index = result - INDEX_OFFSET;
       ImmutableArray<Object> new_backing = _backing.atPut(index * 2 + 1, value);
       return new ImmutableHashMap<K, V>(_size, new_backing, _index);
     }
   }
 
-  private long _insert(long backing_size, K key, V value, boolean only_if_absent, boolean only_if_present, boolean check_for_oversized_backing) {
+  private long _find(long backing_size, K key, V value, boolean only_if_present, boolean check_for_oversized_backing) {
     if (_index == null) {
       if (only_if_present) return DO_NOTHING;
       // A new ImmutableHashMap with no slots must be 'rebuilt' before entries
       // can be added.
-      //System.out.println("Empty map, rebuilding");
       return REBUILD;
     }
     int used = _usedSlots();
@@ -202,8 +166,6 @@ public class ImmutableHashMap<K, V> {
           || backing_size == _MAX_ENTRIES * 2) {
         // If there is not 1.25 times as much space as we need, rebuild with more space.
         // Also rebuild when the backing is clogged with deleted entries.
-        //if (used + (used >> 2) >= _index.length()) System.out.println("Used of " + used + " too much for index length of " + _index.length());
-        //if (backing_size > used * 3) System.out.println("backing_size of " + backing_size + " too much for used of " + used);
         return REBUILD;
       }
     }
@@ -211,7 +173,6 @@ public class ImmutableHashMap<K, V> {
     int slot = hash & _indexMask();
     int step = 1;
     while (true) {
-      //System.out.println("Probing for key " + key + " slot " + slot + " indexMask " + _indexMask());
       if (_isFree(slot)) {
         if (only_if_present) return DO_NOTHING;
         // Found free slot for new entry.
@@ -222,7 +183,6 @@ public class ImmutableHashMap<K, V> {
           // If the compare and swap didn't work then some other thread is
           // intensively updating the index.  We make a new index, which is
           // ours alone and retry.
-          //System.out.println("CAS failed");
           return REBUILD;
         }
         if (_size == _MAX_ENTRIES) {
@@ -232,7 +192,6 @@ public class ImmutableHashMap<K, V> {
         return APPEND;
       }
       if (_matches(key, hash, slot)) {
-        if (only_if_absent) return DO_NOTHING;
         return INDEX_OFFSET + _indexAt(slot);
       }
       int new_slot = (slot + step) & _indexMask();
@@ -241,8 +200,6 @@ public class ImmutableHashMap<K, V> {
         // Searched full table or a slot was taken while we searched.  This
         // must mean some other thread is taking free slots.  We make a new
         // index, which is ours alone and retry.
-        //if (slot == new_slot) System.out.println("Search wrapped around");
-        //if (used != _usedSlots()) System.out.println("Someone interfered with the usedness");
         return REBUILD;
       }
       slot = new_slot;
@@ -330,7 +287,7 @@ public class ImmutableHashMap<K, V> {
     if (index_size > _MAX_INDEX_SIZE) throw new UnsupportedOperationException();
     // Determine whether there are so many deleted elements in the backing
     // store that we need to rebuild it to squeeze them out.
-    boolean squeeze = _backing == null || (_backing.size > _size * 2 + 4 && _backing.size > (long)(_size * 2 * 1.2));
+    boolean squeeze = _backing.size() == 0 || (_backing.size > _size * 2 + 4 && _backing.size > (long)(_size * 2 * 1.2));
     AtomicIntegerArray new_index = new AtomicIntegerArray(index_size + 1);
     ImmutableHashMap<K, V> new_map = squeeze ?
         new ImmutableHashMap<K, V>(0, new ImmutableArray<>(), new_index) :
@@ -353,7 +310,7 @@ public class ImmutableHashMap<K, V> {
               // access to the new index yet.
               map_box[0] = map_box[0].put(key, (V)o);
             } else {
-              long action = map_box[0]._insert(count, key, (V)o, false, false, false);
+              long action = map_box[0]._find(count, key, (V)o, false, false);
               // We are reusing the backing so the key and value are already appended.
               assert(action == APPEND);
             }
