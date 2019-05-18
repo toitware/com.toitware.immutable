@@ -16,6 +16,7 @@ import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
 import java.util.ListIterator;
+import java.util.Map;
 import java.util.Random;
 import java.util.Set;
 
@@ -36,12 +37,15 @@ import org.organicdesign.fp.collections.UnmodList;
 abstract class ImmutableBenchmark {
   public static void main(String args[]) {
     new MapForEachBench().runs();
+    new MapForEntriesBench().runs();
     new MapForKeysBench().runs();
     new MapForValsBench().runs();
     new PMapForEachBench().runs();
+    new PMapForEntriesBench().runs();
     new PMapForKeysBench().runs();
     new PMapForValsBench().runs();
     new PagMapForEachBench().runs();
+    new PagMapForEntriesBench().runs();
     new PagMapForKeysBench().runs();
     new PagMapForValsBench().runs();
     new RandomAccess().runs();
@@ -1722,6 +1726,19 @@ abstract class ImmutableBenchmark {
     }
   }
 
+  private static class MapForEntriesBench extends MapIterationBench {
+    public String name() { return "MapForEntriesBench    "; }
+    public void run() {
+      long answer = 0;
+      for (ImmutableHashMap<String, Integer> map : _top) {
+        for (Map.Entry<String, Integer> entry : map.entrySet()) {
+          answer += entry.getValue();
+        };
+      }
+      if (answer != sum()) throw new RuntimeException();
+    }
+  }
+
   private static class MapForKeysBench extends MapIterationBench {
     public String name() { return "MapForKeysBench       "; }
     public void run() {
@@ -1761,6 +1778,19 @@ abstract class ImmutableBenchmark {
     }
   }
 
+  private static class PMapForEntriesBench extends MapIterationBench {
+    public String name() { return "PMapForEntriesBench    "; }
+    public void run() {
+      long answer = 0;
+      for (HashPMap<String, Integer> map : _pmaps) {
+        for (Map.Entry<String, Integer> entry : map.entrySet()) {
+          answer += entry.getValue();
+        };
+      }
+      if (answer != sum()) throw new RuntimeException();
+    }
+  }
+
   private static class PMapForKeysBench extends MapIterationBench {
     public String name() { return "PMapForKeysBench      "; }
     public void run() {
@@ -1797,6 +1827,19 @@ abstract class ImmutableBenchmark {
         });
       }
       if (answer[0] != sum()) throw new RuntimeException();
+    }
+  }
+
+  private static class PagMapForEntriesBench extends MapIterationBench {
+    public String name() { return "PagMapForEntriesBench    "; }
+    public void run() {
+      long answer = 0;
+      for (ImMap<String, Integer> map : _paguro) {
+        for (Map.Entry<String, Integer> entry : map.entrySet()) {
+          answer += entry.getValue();
+        };
+      }
+      if (answer != sum()) throw new RuntimeException();
     }
   }
 
